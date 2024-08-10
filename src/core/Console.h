@@ -7,6 +7,29 @@
 #include <locale.h>
 #include <codecvt>
 
+#if defined(_WIN64) || defined(_WIN32)
+
+    #include "WinDef.h"
+
+    #ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
+    #define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+    #endif
+
+    #ifndef MS_STDLIB_BUGS
+    #if ( _MSC_VER || __MINGW32__ || __MSVCRT__ )
+    #define MS_STDLIB_BUGS 1
+    #else
+    #define MS_STDLIB_BUGS 0
+    #endif
+    #endif
+
+    #if MS_STDLIB_BUGS
+    #include <io.h>
+    #include <fcntl.h>
+    #endif
+
+#endif
+
 // API ---------------------------------
 
 namespace spc
@@ -54,25 +77,6 @@ namespace spc
 
 #if defined(_WIN64) || defined(_WIN32)
     // Windows ----------
-
-    #include "WinDef.h"
-
-    #ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
-    #define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
-    #endif
-
-    #ifndef MS_STDLIB_BUGS
-        #if ( _MSC_VER || __MINGW32__ || __MSVCRT__ )
-            #define MS_STDLIB_BUGS 1
-        #else
-            #define MS_STDLIB_BUGS 0
-        #endif
-    #endif
-
-    #if MS_STDLIB_BUGS
-        #include <io.h>
-        #include <fcntl.h>
-    #endif
 
     static HANDLE stdoutHandle;
     static DWORD outModeInit;

@@ -12,7 +12,9 @@ endif()
 project ("space")
 
 # Add source to this project's executable.
-set(SRCS	"src/Main.cpp")
+set(SRCS	"src/Main.cpp"
+			"src/engine/Engine.cpp"
+			"src/engine/Render.cpp")
 add_executable (space ${SRCS})
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

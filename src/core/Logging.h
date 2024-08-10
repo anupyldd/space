@@ -9,6 +9,11 @@ namespace spc
 {
     namespace log
     {
+        inline void Output(const String& str)
+        {
+            con::Print(str);
+        }
+
         inline void Debug(const String& str)
         {
             #if _DEBUG

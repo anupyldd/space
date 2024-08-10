@@ -1,8 +1,8 @@
 ﻿#include "Windows.h"
 #include <iostream>
-#include "base/Types.h"
-#include "base/Console.h"
-#include "base/Logging.h"
+#include "core/Types.h"
+#include "core/Console.h"
+#include "core/Logging.h"
 #include <format>
 
 using namespace spc;

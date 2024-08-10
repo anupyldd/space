@@ -113,8 +113,7 @@ namespace spc
                 setlocale(LC_ALL, cp_utf16le);
                 _setmode(_fileno(stdout), _O_WTEXT);
             #else
-                // The correct locale name may vary by OS, e.g., "en_US.utf8".
-                constexpr char locale_name[] = "";
+                constexpr char locale_name[] = "en_US.utf8";
                 setlocale(LC_ALL, locale_name);
                 std::locale::global(std::locale(locale_name));
                 std::wcin.imbue(std::locale())
@@ -135,7 +134,6 @@ namespace spc
             itrn::InitLocale();
             itrn::EnableANSI();
             SetConsoleOutputCP(65001);
-            //system("chcp 65001");
         }
 
         inline std::wstring Utf8ToUtf16(const String& str)
@@ -169,24 +167,6 @@ namespace spc
 
             return str;
         }
-
-        /*
-        inline std::wstring Utf8ToUtf16(const String& str8) 
-        {
-            int sizeNeeded = MultiByteToWideChar(CP_UTF8, 0, str8.c_str(), (int)str8.size(), NULL, 0);
-            std::wstring str16(sizeNeeded, 0);
-            MultiByteToWideChar(CP_UTF8, 0, str8.c_str(), (int)str8.size(), &str16[0], sizeNeeded);
-            return str16;
-        }
-
-        inline String Utf16ToUtf8(const std::wstring& str16) 
-        {
-            int sizeNeeded = WideCharToMultiByte(CP_UTF8, 0, str16.c_str(), (int)str16.size(), NULL, 0, NULL, NULL);
-            String str8(sizeNeeded, 0);
-            WideCharToMultiByte(CP_UTF8, 0, str16.c_str(), (int)str16.size(), &str8[0], sizeNeeded, NULL, NULL);
-            return str8;
-        }
-        */
 
         inline void Print(const String& str) 
         {
@@ -225,6 +205,15 @@ namespace spc
         inline void Print(const String& str) { std::cout << str; }
         inline void PrintN(const String& str) { std::cout << str << '\n'; }
         inline void Input(String& str) { std::cin >> str; }
+
+        inline String SetStringColor(const String& str, ColorANSI txtCol, ColorANSI bgCol)
+        {
+            if (bgCol == ColorANSI::NONE)
+                return std::format("\x1b[{}m{}\x1b[0m", itrn::GetUnderlying(txtCol), str);
+
+            return std::format("\x1b[{};{}m{}\x1b[0m",
+                itrn::GetUnderlying(txtCol), itrn::GetUnderlying(bgCol) + 10, str);
+        }
     }
 
 #else

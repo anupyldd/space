@@ -1,4 +1,6 @@
-
+#include <cstdint>
+#include <type_traits>
+#include <format>
 
 // API ---------------------------------
 
@@ -14,6 +16,27 @@ namespace spc
         inline void Print(const String& str);
         inline void PrintN(const String& str);
         inline void Input(String& str);
+
+        enum ColorANSI : uint8_t
+        {
+            NONE            = 0,
+            BLACK           = 30,
+            RED             = 31,
+            GREEN           = 32,
+            YELLOW          = 33,
+            BLUE            = 34,
+            MAGENTA         = 35,
+            CYAN            = 36,
+            WHITE           = 37,
+            BRIGHT_BLACK    = 90,
+            BRIGHT_RED      = 91,
+            BRIGHT_GREEN    = 92,
+            BRIGHT_YELLOW   = 93,
+            BRIGHT_BLUE     = 94,
+            BRIGHT_MAGENTA  = 95,
+            BRIGHT_CYAN     = 96,
+            BRIGHT_WHITE    = 97
+        };
     }
 }
 
@@ -62,13 +85,19 @@ namespace spc
                 exit(GetLastError());
             }
         }
+
+            // for getting underlying value from enum class members
+            template<typename T>
+            constexpr inline auto GetUnderlying(T ecm) -> typename std::underlying_type<T>::type
+            {
+                return static_cast<typename std::underlying_type<T>::type>(ecm);
+            }
         }
         // -----------------
         inline void Init()
         {
             itrn::EnableANSI();
             system("chcp 65001");
-            //SetConsoleOutputCP(65001);
         }
 
         inline std::wstring Utf8ToUtf16(const String& str8) 
@@ -91,15 +120,26 @@ namespace spc
         {
             std::wcout << Utf8ToUtf16(str);
         }
+
         inline void PrintN(const String& str) 
         {
             std::wcout << Utf8ToUtf16(str) << L'\n';
         }
+
         inline void Input(String& str) 
         {
             std::wstring wstr;
             std::wcin >> wstr;
             str = Utf16ToUtf8(wstr);
+        }
+
+        inline String SetStringColor(const String& str, ColorANSI txtCol, ColorANSI bgCol = ColorANSI::NONE)
+        {
+            if (bgCol == ColorANSI::NONE)
+                return std::format("\x1b[{}m{}\x1b[0m", itrn::GetUnderlying(txtCol), str);
+
+            return std::format("\x1b[{};{}m{}\x1b[0m",
+                itrn::GetUnderlying(txtCol), itrn::GetUnderlying(bgCol) + 10, str);
         }
     }
 

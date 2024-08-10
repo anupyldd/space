@@ -10,10 +10,11 @@ int main(int argc, char** argv)
 {
     con::Init();
 
-    String s = "привет";
-    log::Debug(s);
-    String s2 = con::SetStringColor(s, con::BLUE, con::BRIGHT_GREEN);
+    String s2 = "текст текст";
     log::Debug(s2);
+    log::Info(s2);
+    log::Warning(s2);
+    log::Error(s2);
 
     //std::cout << "\x1b[31mMagenta\x1b[0m";
     std::cin.get();

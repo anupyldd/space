@@ -1,6 +1,11 @@
+#pragma once
+
 #include <cstdint>
 #include <type_traits>
 #include <format>
+#include <locale>
+#include <locale.h>
+#include <codecvt>
 
 // API ---------------------------------
 
@@ -37,6 +42,8 @@ namespace spc
             BRIGHT_CYAN     = 96,
             BRIGHT_WHITE    = 97
         };
+
+        inline String SetStringColor(const String& str, ColorANSI txtCol, ColorANSI bgCol);
     }
 }
 
@@ -52,6 +59,19 @@ namespace spc
 
     #ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
     #define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+    #endif
+
+    #ifndef MS_STDLIB_BUGS
+        #if ( _MSC_VER || __MINGW32__ || __MSVCRT__ )
+            #define MS_STDLIB_BUGS 1
+        #else
+            #define MS_STDLIB_BUGS 0
+        #endif
+    #endif
+
+    #if MS_STDLIB_BUGS
+        #include <io.h>
+        #include <fcntl.h>
     #endif
 
     static HANDLE stdoutHandle;
@@ -86,6 +106,22 @@ namespace spc
             }
         }
 
+            inline void InitLocale()
+            {
+            #if MS_STDLIB_BUGS
+                constexpr char cp_utf16le[] = ".1200";
+                setlocale(LC_ALL, cp_utf16le);
+                _setmode(_fileno(stdout), _O_WTEXT);
+            #else
+                // The correct locale name may vary by OS, e.g., "en_US.utf8".
+                constexpr char locale_name[] = "";
+                setlocale(LC_ALL, locale_name);
+                std::locale::global(std::locale(locale_name));
+                std::wcin.imbue(std::locale())
+                    std::wcout.imbue(std::locale());
+            #endif
+            }
+
             // for getting underlying value from enum class members
             template<typename T>
             constexpr inline auto GetUnderlying(T ecm) -> typename std::underlying_type<T>::type
@@ -96,10 +132,45 @@ namespace spc
         // -----------------
         inline void Init()
         {
+            itrn::InitLocale();
             itrn::EnableANSI();
-            system("chcp 65001");
+            SetConsoleOutputCP(65001);
+            //system("chcp 65001");
         }
 
+        inline std::wstring Utf8ToUtf16(const String& str)
+        {
+            if (str.empty()) return std::wstring();
+
+            int required = MultiByteToWideChar(CP_THREAD_ACP, 0, str.data(), (int)str.size(), NULL, 0);
+            if (required == 0) return std::wstring();
+
+            std::wstring wstr;
+            wstr.resize(required);
+
+            int converted = MultiByteToWideChar(CP_THREAD_ACP, 0, str.data(), (int)str.size(), &wstr[0], wstr.capacity());
+            if (converted == 0) return std::wstring();
+
+            return wstr;
+        }
+
+        inline std::string Utf16ToUtf8(const std::wstring& wstr)
+        {
+            if (wstr.empty()) return std::string();
+
+            int required = WideCharToMultiByte(CP_THREAD_ACP, 0, wstr.data(), (int)wstr.size(), NULL, 0, NULL, NULL);
+            if (0 == required) return std::string();
+
+            std::string str;
+            str.resize(required);
+
+            int converted = WideCharToMultiByte(CP_THREAD_ACP, 0, wstr.data(), (int)wstr.size(), &str[0], str.capacity(), NULL, NULL);
+            if (0 == converted) return std::string();
+
+            return str;
+        }
+
+        /*
         inline std::wstring Utf8ToUtf16(const String& str8) 
         {
             int sizeNeeded = MultiByteToWideChar(CP_UTF8, 0, str8.c_str(), (int)str8.size(), NULL, 0);
@@ -115,6 +186,7 @@ namespace spc
             WideCharToMultiByte(CP_UTF8, 0, str16.c_str(), (int)str16.size(), &str8[0], sizeNeeded, NULL, NULL);
             return str8;
         }
+        */
 
         inline void Print(const String& str) 
         {
@@ -133,7 +205,7 @@ namespace spc
             str = Utf16ToUtf8(wstr);
         }
 
-        inline String SetStringColor(const String& str, ColorANSI txtCol, ColorANSI bgCol = ColorANSI::NONE)
+        inline String SetStringColor(const String& str, ColorANSI txtCol, ColorANSI bgCol)
         {
             if (bgCol == ColorANSI::NONE)
                 return std::format("\x1b[{}m{}\x1b[0m", itrn::GetUnderlying(txtCol), str);

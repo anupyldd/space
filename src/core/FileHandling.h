@@ -31,7 +31,7 @@ namespace spc
         
         inline bool    Open(const std::filesystem::path& path, FileMode mode, File& file); // opens into "file" object
         inline bool    Map(File& file);
-        inline void    Close(File& file);
+        inline bool    Close(File& file);
         inline String  GetContent(const File& file);
     }
 }
@@ -206,6 +206,31 @@ namespace spc
             return true;
 
         #endif      
+        }
+
+        inline bool Close(File& file)
+        {
+        // Windows -----------------------
+        #if WINDOWS_PLATFORM
+
+            UnmapViewOfFile(file.map);
+            CloseHandle(file.mappingWin);
+            CloseHandle(file.handle);
+            return true;
+
+        // Posix -------------------------
+        #else
+
+            if (munmap(mapped, sb.st_size) == -1) 
+            {
+                throw exc::CoreException("Failed to unmap the file")
+                perror("Failed to unmap the file");
+                return false;
+            }
+            close(fd);
+            return true;
+
+        #endif
         }
     }
 }

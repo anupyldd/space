@@ -31,7 +31,7 @@ namespace spc
         
         inline bool    Open(const std::filesystem::path& path, FileMode mode, File& file); // opens into "file" object
         inline bool    Map(File& file);
-        inline void    CleanUp(File& file);
+        inline void    Close(File& file);
         inline String  GetContent(const File& file);
     }
 }
@@ -56,6 +56,28 @@ namespace spc
                 }
             }
 
+            inline DWORD GetFileProtectWindows(FileMode mode)
+            {
+                switch (mode)
+                {
+                case FileMode::READ: return PAGE_READONLY;
+                case FileMode::WRITE: 
+                case FileMode::READ_WRITE: return PAGE_READWRITE;
+                default: throw exc::CoreException("Unknown file access mode");
+                }
+            }
+
+            inline DWORD GetMapAccessWindows(FileMode mode)
+            {
+                switch (mode)
+                {
+                case FileMode::READ: return FILE_MAP_READ;
+                case FileMode::WRITE: return FILE_MAP_WRITE;
+                case FileMode::READ_WRITE: return FILE_MAP_ALL_ACCESS;
+                default: throw exc::CoreException("Unknown file access mode");
+                }
+            }
+
             inline int GetFileModePosix(FileMode mode)
             {
                 switch (mode)
@@ -70,12 +92,15 @@ namespace spc
 
         struct File
         {
-            bool valid = false; // sets to true when successfully mapped
+            bool open = false;      // sets to true when successfully opened
+            bool mapped = false;    // sets to true when successfully mapped
+
+            FileMode mode;
 
             PLATFORM_TYPE(HANDLE, int)          handle;
             PLATFORM_TYPE(DWORD,  struct stat)  stat;
             PLATFORM_TYPE(LPVOID, char*)        map;
-            HANDLE                              mapping;      // only used on windows, since there's a 2-step mapping process there
+            HANDLE                              mappingWin;      // only used on windows, since there's a 2-step mapping process there
         };
     
         inline bool Open(const std::filesystem::path& path, FileMode mode, File& file) 
@@ -99,6 +124,8 @@ namespace spc
                 return false;
             }
 
+            file.mode = mode;
+            file.open = true;
             return true;
 
         // Posix -------------------------
@@ -120,6 +147,8 @@ namespace spc
                 return false;
             }
 
+            file.mode = mode;
+            file.open = true;
             return true;
 
         #endif
@@ -129,13 +158,52 @@ namespace spc
         {
         // Windows -----------------------
         #if WINDOWS_PLATFORM
-            return true;
+            
+            if (!file.open)
+            {
+                throw exc::CoreException("File mapping failed: requested file is not open");
+                return false;
+            }
 
+            file.mappingWin = CreateFileMapping(file.handle, NULL, itrn::GetFileProtectWindows(file.mode), 0, 0, NULL);
+            if (file.mappingWin == NULL)
+            {
+                throw exc::CoreException("Failed to create file mapping: " + GetLastError());
+                CloseHandle(file.handle);
+                return false;
+            }
+
+            file.map = MapViewOfFile(file.mappingWin, itrn::GetMapAccessWindows(file.mode), 0, 0, 0);
+            if (file.map == NULL)
+            {
+                throw exc::CoreException("Failed to map the view of the file: " + GetLastError());
+                CloseHandle(file.handle);
+                return false;
+            }
+
+            file.mapped = true;
+            return true;
 
         // Posix -------------------------
         #else
-            return true;
 
+            if (!file.open)
+            {
+                throw exc::CoreException("File mapping failed: requested file is not open");
+                return false;
+            }
+
+            file.map = static_cast<char*>(mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0));
+            if (file.map = MAP_FAILED)
+            {
+                throw exc::CoreException("Failed to create file mapping: " + GetLastError());
+                perror("Failed to create file mapping");
+                close(file.handle);
+                return false;
+            }
+
+            file.mapped = true;
+            return true;
 
         #endif      
         }

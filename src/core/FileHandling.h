@@ -19,6 +19,7 @@
 #include "Exception.h"
 
 #include <filesystem>
+#include <sstream>
 
 // API ---------------------------------
 
@@ -210,6 +211,8 @@ namespace spc
 
         inline bool Close(File& file)
         {
+            if (!file.open) return true;
+
         // Windows -----------------------
         #if WINDOWS_PLATFORM
 
@@ -221,7 +224,7 @@ namespace spc
         // Posix -------------------------
         #else
 
-            if (munmap(mapped, sb.st_size) == -1) 
+            if (munmap(file.map, file.stat.st_size) == -1) 
             {
                 throw exc::CoreException("Failed to unmap the file")
                 perror("Failed to unmap the file");
@@ -229,6 +232,22 @@ namespace spc
             }
             close(fd);
             return true;
+
+        #endif
+        }
+
+        inline String GetContent(const File& file)
+        {
+        // Windows -----------------------
+        #if WINDOWS_PLATFORM
+
+            //char* content = static_cast<char*>(file.map);
+            return String(static_cast<char*>(file.map));
+
+        // Posix -------------------------
+        #else
+
+            return String(file.map);
 
         #endif
         }

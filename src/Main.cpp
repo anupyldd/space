@@ -15,7 +15,7 @@ int main(int argc, char** argv)
     {
         file::FileStruct fl;
         file::Open("test.txt", file::FileMode::READ, fl);
-        file::Map(fl);
+        //file::Map(fl);
         log::Info(file::GetContent(fl));
         file::Close(fl);
     }

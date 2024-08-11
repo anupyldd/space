@@ -27,6 +27,8 @@ namespace spc
 {
     namespace file
     {
+        class File; // main class for handling files, mostly choose this over FileStruct
+
         struct FileStruct;    // common struct for both windows and posix files, usi with Open, Map, Close, GetContent
         enum class FileMode { READ, WRITE, READ_WRITE };
         
@@ -249,6 +251,17 @@ namespace spc
 
         inline String GetContent(const FileStruct& file)
         {
+            if (!file.open)
+            {
+                throw exc::CoreException("Unable to get file content: the file is not open");
+                return String();
+            }
+            if (!file.mapped) 
+            {
+                throw exc::CoreException("Unable to get file content: the file is not mapped");
+                return String();
+            }
+
         // Windows -----------------------
         #if WINDOWS_PLATFORM
 
@@ -262,5 +275,11 @@ namespace spc
 
         #endif
         }
+
+        // main class for handling files, mostly choose this over FileStruct
+        class File : private FileStruct
+        {
+            File() = default;
+        };
     }
 }

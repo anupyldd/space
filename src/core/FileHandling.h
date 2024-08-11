@@ -27,6 +27,8 @@ namespace spc
 {
     namespace file
     {
+        class File; // main class for handling files, mostly choose this over FileStruct
+
         struct FileStruct;    // common struct for both windows and posix files, usi with Open, Map, Close, GetContent
         enum class FileMode { READ, WRITE, READ_WRITE };
         
@@ -114,13 +116,13 @@ namespace spc
                 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
             if (file.handle == INVALID_HANDLE_VALUE)
             {
-                throw exc::CoreException("Failed to create a file handle with error: " + GetLastError());
+                throw exc::CoreException("Failed to create a file handle with error: " + GetLastErrorStr());
                 return false;
             }
 
             if (!GetFileSizeEx(file.handle, &file.stat))
             {
-                throw exc::CoreException("Failed to get file size with error: " + GetLastError());
+                throw exc::CoreException("Failed to get file size with error: " + GetLastErrorStr());
                 CloseHandle(file.handle);
                 return false;
             }
@@ -147,7 +149,7 @@ namespace spc
                 return false;
             }
 
-            if (std::filesystemtat(file.handle, &file.stat) == -1)
+            if (fstat(file.handle, &file.stat) == -1)
             {
                 throw exc::CoreException("Failed to get file size");
                 perror("Failed to get file size");
@@ -176,7 +178,7 @@ namespace spc
             file.mappingWin = CreateFileMapping(file.handle, NULL, itrn::GetFileProtectWindows(file.mode), 0, 0, NULL);
             if (file.mappingWin == NULL)
             {
-                throw exc::CoreException("Failed to create file mapping with error: " + GetLastError());
+                throw exc::CoreException("Failed to create file mapping with error: " + GetLastErrorStr());
                 CloseHandle(file.handle);
                 return false;
             }
@@ -184,7 +186,7 @@ namespace spc
             file.map = MapViewOfFile(file.mappingWin, itrn::GetMapAccessWindows(file.mode), 0, 0, 0);
             if (file.map == NULL)
             {
-                throw exc::CoreException("Failed to map the view of the file with error: " + GetLastError());
+                throw exc::CoreException("Failed to map the view of the file with error: " + GetLastErrorStr());
                 CloseHandle(file.handle);
                 return false;
             }
@@ -204,7 +206,7 @@ namespace spc
             file.map = static_cast<char*>(mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0));
             if (file.map = MAP_FAILED)
             {
-                throw exc::CoreException("Failed to create file mapping: " + GetLastError());
+                throw exc::CoreException("Failed to create file mapping: " + GetLastErrorStr());
                 perror("Failed to create file mapping");
                 close(file.handle);
                 return false;
@@ -249,6 +251,17 @@ namespace spc
 
         inline String GetContent(const FileStruct& file)
         {
+            if (!file.open)
+            {
+                throw exc::CoreException("Unable to get file content: the file is not open");
+                return String();
+            }
+            if (!file.mapped) 
+            {
+                throw exc::CoreException("Unable to get file content: the file is not mapped");
+                return String();
+            }
+
         // Windows -----------------------
         #if WINDOWS_PLATFORM
 
@@ -262,5 +275,203 @@ namespace spc
 
         #endif
         }
+
+        // main class for handling files, mostly choose this over FileStruct
+        class File
+        {
+        public:
+            File() = default;
+            ~File() { Close(); }
+
+            bool Open(const std::filesystem::path& path, FileMode mode)
+            {
+            // Windows -----------------------
+            #if WINDOWS_PLATFORM
+
+                m_handle = CreateFile(path.string().c_str(), itrn::GetFileModeWindows(mode),
+                    0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+                if (m_handle == INVALID_HANDLE_VALUE)
+                {
+                    throw exc::CoreException("Failed to create a file handle with error: " + GetLastErrorStr());
+                    return false;
+                }
+
+                if (!GetFileSizeEx(m_handle, &m_stat))
+                {
+                    throw exc::CoreException("Failed to get file size with error: " + GetLastErrorStr());
+                    CloseHandle(m_handle);
+                    return false;
+                }
+
+                if (m_stat.QuadPart == 0 && mode == FileMode::READ)
+                {
+                    throw exc::CoreException("Opened file is empty");
+                    CloseHandle(m_handle);
+                    return false;
+                }
+
+                m_mode = mode;
+                m_open = true;
+                return true;
+
+            // Posix -------------------------
+            #else
+
+                m_handle = open(path.string().c_str(), itrn::GetFileModePosix(mode));
+                if (m_handle == -1)
+                {
+                    throw exc::CoreException("Failed to open a file");
+                    perror("Failed to open a file");
+                    return false;
+                }
+
+                if (fstat(m_handle, &m_stat) == -1)
+                {
+                    throw exc::CoreException("Failed to get file size");
+                    perror("Failed to get file size");
+                    close(m_handle);
+                    return false;
+                }
+
+                m_mode = mode;
+                m_open = true;
+                return true;
+
+            #endif
+            }
+
+            bool Map()
+            {
+            // Windows -----------------------
+            #if WINDOWS_PLATFORM
+
+                if (!m_open)
+                {
+                    throw exc::CoreException("File mapping failed: requested file is not open");
+                    return false;
+                }
+
+                m_mappingWin = CreateFileMapping(m_handle, NULL, itrn::GetFileProtectWindows(m_mode), 0, 0, NULL);
+                if (m_mappingWin == NULL)
+                {
+                    throw exc::CoreException("Failed to create file mapping with error: " + GetLastErrorStr());
+                    CloseHandle(m_handle);
+                    return false;
+                }
+
+                m_map = MapViewOfFile(m_mappingWin, itrn::GetMapAccessWindows(m_mode), 0, 0, 0);
+                if (m_map == NULL)
+                {
+                    throw exc::CoreException("Failed to map the view of the file with error: " + GetLastErrorStr());
+                    CloseHandle(m_handle);
+                    return false;
+                }
+
+                m_mapped = true;
+                return true;
+
+            // Posix -------------------------
+            #else
+                
+                if (!m_open)
+                {
+                    throw exc::CoreException("File mapping failed: requested file is not open");
+                    return false;
+                }
+
+                m_map = static_cast<char*>(mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0));
+                if (m_map = MAP_FAILED)
+                {
+                    throw exc::CoreException("Failed to create file mapping: " + GetLastErrorStr());
+                    perror("Failed to create file mapping");
+                    close(m_handle);
+                    return false;
+                }
+
+                m_mapped = true;
+                return true;
+
+            #endif      
+            }
+
+            // called on destruction
+            bool Close()
+            {
+                if (!m_open) return true;
+
+            // Windows -----------------------
+            #if WINDOWS_PLATFORM
+
+                if (m_mapped)
+                {
+                    UnmapViewOfFile(m_map);
+                    CloseHandle(m_mappingWin);
+                }
+                CloseHandle(m_handle);
+
+                log::Debug("Closed the file");
+                return true;
+
+            // Posix -------------------------
+            #else
+
+                if (munmap(m_map, m_stat.st_size) == -1)
+                {
+                    throw exc::CoreException("Failed to unmap the file")
+                        perror("Failed to unmap the file");
+                    return false;
+                }
+                close(fd);
+
+                log::Debug("Closed the file");
+                return true;
+
+            #endif
+
+            }
+
+            String GetContent()
+            {
+                if (!m_open)
+                {
+                    throw exc::CoreException("Unable to get file content: the file is not open");
+                    return String();
+                }
+                if (!m_mapped)
+                {
+                    throw exc::CoreException("Unable to get file content: the file is not mapped");
+                    return String();
+                }
+
+            // Windows -----------------------
+            #if WINDOWS_PLATFORM
+
+                return String(static_cast<char*>(m_map));
+
+            // Posix -------------------------
+            #else
+
+                return String(m_map);
+
+            #endif
+            }
+
+            String Read(const std::filesystem::path& path)
+            {
+                Open(path, FileMode::READ);
+                Map();
+                return GetContent();
+            }
+
+        private:
+            bool                                        m_open = false;
+            bool                                        m_mapped = false;
+            FileMode                                    m_mode;
+
+            PLATFORM_TYPE(HANDLE, int)                  m_handle;
+            PLATFORM_TYPE(LARGE_INTEGER, struct stat)   m_stat;
+            PLATFORM_TYPE(LPVOID, char*)                m_map;
+            HANDLE                                      m_mappingWin;      // only used on windows, since there's a 2-step mapping process 
+        };
     }
 }

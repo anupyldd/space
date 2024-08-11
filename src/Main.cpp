@@ -7,23 +7,21 @@
 #include <format>
 
 using namespace spc;
+using namespace spc::file;
 int main(int argc, char** argv)
 {
     con::Init();
 
     try
     {
-        file::FileStruct fl;
-        file::Open("test.txt", file::FileMode::READ, fl);
-        file::Map(fl);
-        log::Info(file::GetContent(fl));
-        file::Close(fl);
+        File fl;
+        log::Info(fl.Read("test.txt"));
     }
     catch (const exc::IException& e)
     {
         log::Error(e.What());
     }
-
+    log::Info("file now should be out of scope");
     /*
     String s2 = "текст текст";
     log::Debug(s2);

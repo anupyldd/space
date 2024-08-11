@@ -27,13 +27,14 @@ namespace spc
 {
     namespace file
     {
-        struct File;    // common struct for both windows and posix files
+        struct FileStruct;    // common struct for both windows and posix files, usi with Open, Map, Close, GetContent
         enum class FileMode { READ, WRITE, READ_WRITE };
         
-        inline bool    Open(const std::filesystem::path& path, FileMode mode, File& file); // opens into "file" object
-        inline bool    Map(File& file);
-        inline bool    Close(File& file);
-        inline String  GetContent(const File& file);
+        // all these should be used together
+        inline bool    Open(const std::filesystem::path& path, FileMode mode, FileStruct& file); // opens into "file" object
+        inline bool    Map(FileStruct& file);   // file memory mapping
+        inline bool    Close(FileStruct& file);
+        inline String  GetContent(const FileStruct& file);
     }
 }
 
@@ -91,36 +92,42 @@ namespace spc
             }
         }
 
-        struct File
+        struct FileStruct
         {
             bool open = false;      // sets to true when successfully opened
             bool mapped = false;    // sets to true when successfully mapped
 
             FileMode mode;
 
-            PLATFORM_TYPE(HANDLE, int)          handle;
-            PLATFORM_TYPE(DWORD,  struct stat)  stat;
-            PLATFORM_TYPE(LPVOID, char*)        map;
-            HANDLE                              mappingWin;      // only used on windows, since there's a 2-step mapping process there
+            PLATFORM_TYPE(HANDLE, int)                  handle;
+            PLATFORM_TYPE(LARGE_INTEGER,  struct stat)  stat;
+            PLATFORM_TYPE(LPVOID, char*)                map;
+            HANDLE                                      mappingWin;      // only used on windows, since there's a 2-step mapping process there
         };
     
-        inline bool Open(const std::filesystem::path& path, FileMode mode, File& file) 
+        inline bool Open(const std::filesystem::path& path, FileMode mode, FileStruct& file) 
         {
         // Windows -----------------------
         #if WINDOWS_PLATFORM
 
             file.handle = CreateFile(path.string().c_str(), itrn::GetFileModeWindows(mode),
-                FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+                0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
             if (file.handle == INVALID_HANDLE_VALUE)
             {
-                throw exc::CoreException("Failed to create a file handle: " + GetLastError());
+                throw exc::CoreException("Failed to create a file handle with error: " + GetLastError());
                 return false;
             }
 
-            file.stat = GetFileSize(file.handle, NULL);
-            if (file.stat = INVALID_FILE_SIZE)
+            if (!GetFileSizeEx(file.handle, &file.stat))
             {
-                throw exc::CoreException("Failed to get file size: " + GetLastError());
+                throw exc::CoreException("Failed to get file size with error: " + GetLastError());
+                CloseHandle(file.handle);
+                return false;
+            }
+
+            if (file.stat.QuadPart == 0 && mode == FileMode::READ)
+            {
+                throw exc::CoreException("Opened file is empty");
                 CloseHandle(file.handle);
                 return false;
             }
@@ -155,7 +162,7 @@ namespace spc
         #endif
         }
 
-        inline bool Map(File& file)
+        inline bool Map(FileStruct& file)
         {
         // Windows -----------------------
         #if WINDOWS_PLATFORM
@@ -169,7 +176,7 @@ namespace spc
             file.mappingWin = CreateFileMapping(file.handle, NULL, itrn::GetFileProtectWindows(file.mode), 0, 0, NULL);
             if (file.mappingWin == NULL)
             {
-                throw exc::CoreException("Failed to create file mapping: " + GetLastError());
+                throw exc::CoreException("Failed to create file mapping with error: " + GetLastError());
                 CloseHandle(file.handle);
                 return false;
             }
@@ -177,7 +184,7 @@ namespace spc
             file.map = MapViewOfFile(file.mappingWin, itrn::GetMapAccessWindows(file.mode), 0, 0, 0);
             if (file.map == NULL)
             {
-                throw exc::CoreException("Failed to map the view of the file: " + GetLastError());
+                throw exc::CoreException("Failed to map the view of the file with error: " + GetLastError());
                 CloseHandle(file.handle);
                 return false;
             }
@@ -209,16 +216,20 @@ namespace spc
         #endif      
         }
 
-        inline bool Close(File& file)
+        inline bool Close(FileStruct& file)
         {
             if (!file.open) return true;
 
         // Windows -----------------------
         #if WINDOWS_PLATFORM
 
-            UnmapViewOfFile(file.map);
-            CloseHandle(file.mappingWin);
-            CloseHandle(file.handle);
+            if (file.mapped)
+            {
+                UnmapViewOfFile(file.map);
+                CloseHandle(file.mappingWin);
+            }
+            if(file.open) CloseHandle(file.handle);
+
             return true;
 
         // Posix -------------------------
@@ -236,7 +247,7 @@ namespace spc
         #endif
         }
 
-        inline String GetContent(const File& file)
+        inline String GetContent(const FileStruct& file)
         {
         // Windows -----------------------
         #if WINDOWS_PLATFORM

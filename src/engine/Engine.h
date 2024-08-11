@@ -1,6 +1,6 @@
 #pragma once
 
-//#include "../base/Logging.h"
+#include "../core/Logging.h"
 
 namespace spc
 {

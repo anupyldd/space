@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Types.h"
+
 #include <cstdint>
 #include <type_traits>
 #include <format>
@@ -10,6 +12,7 @@
 #if defined(_WIN64) || defined(_WIN32)
 
     #include "WinDef.h"
+//#include <Windows.h>
 
     #ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
     #define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004

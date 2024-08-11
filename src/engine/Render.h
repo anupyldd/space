@@ -1,6 +1,6 @@
 #pragma once
 
-//#include "../base/Console.h"
+#include "../core/Console.h"
 
 namespace spc
 {

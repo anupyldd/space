@@ -47,3 +47,23 @@
 #if defined(_WIN64) || defined(_WIN32)
 #include <Windows.h>
 #endif
+
+namespace spc
+{
+    inline String GetLastErrorStr()
+    {
+        DWORD errorMessageID = GetLastError();
+        if (errorMessageID == 0) {
+            return String(); 
+        }
+
+        LPSTR messageBuffer = nullptr;
+
+        size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+            NULL, errorMessageID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
+
+        String message(messageBuffer, size);
+        LocalFree(messageBuffer);
+        return message;
+    }
+}

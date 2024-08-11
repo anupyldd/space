@@ -1,4 +1,6 @@
 
+#pragma once
+
 #include <exception>
 #include <format>
 #include <source_location>

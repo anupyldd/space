@@ -5,12 +5,21 @@
 #include "core/Exception.h"
 #include "engine/Engine.h"
 #include <format>
+#include "engine/Localization.h"
 
 using namespace file;
+using namespace eng::loc;
 int main(int argc, char** argv)
 {
     con::Init();
 
+    Localization loc;
+    loc.LoadFiles({ "res/test.txtloc", "res/test2.txtloc" });
+    lg::Info(std::to_string(loc.GetLoadedFilesNum()));
+    lg::Output(loc.GetFileContents("test2.txtloc"));
+
+
+    /*
     try
     {
         File fl;
@@ -25,6 +34,7 @@ int main(int argc, char** argv)
         lg::Error("something went wrong");
     }
     con::PrintN("тест юникода");
+    */
     /*
     String s2 = "текст текст";
     lg::Debug(s2);

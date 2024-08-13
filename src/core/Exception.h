@@ -12,6 +12,9 @@
 namespace exc
 {
 	class CoreException;
+	class RenderException;
+	class EngineException;
+	class GameException;
 }
 
 // -------------------------------------
@@ -27,7 +30,7 @@ namespace exc
 
 		String What() const noexcept
 		{
-			return std::format("[{}] {}.\n          Function: {}\n          File: {} (line {})",
+			return std::format("[{}]\n          {}.\n          Function: {}\n          File: {} (line {})",
 				m_Name(), m_msg,
 				m_loc.function_name(), m_loc.file_name(), m_loc.line());
 		}

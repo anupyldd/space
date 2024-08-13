@@ -6,8 +6,7 @@
 #include "engine/Engine.h"
 #include <format>
 
-using namespace spc;
-using namespace spc::file;
+using namespace file;
 int main(int argc, char** argv)
 {
     con::Init();
@@ -15,19 +14,23 @@ int main(int argc, char** argv)
     try
     {
         File fl;
-        log::Info(fl.Read("test.txt"));
+        lg::Info(fl.Read("res/test.txtloc"));
     }
     catch (const exc::IException& e)
     {
-        log::Error(e.What());
+        lg::Error(e.What());
     }
-    log::Info("file now should be out of scope");
+    catch (...)
+    {
+        lg::Error("something went wrong");
+    }
+    con::PrintN("тест юникода");
     /*
     String s2 = "текст текст";
-    log::Debug(s2);
-    log::Info(s2);
-    log::Warning(s2);
-    log::Error(s2);
+    lg::Debug(s2);
+    lg::Info(s2);
+    lg::Warning(s2);
+    lg::Error(s2);
     */
 
     //std::cout << "\x1b[31mMagenta\x1b[0m";

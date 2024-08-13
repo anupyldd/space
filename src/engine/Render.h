@@ -2,17 +2,14 @@
 
 #include "../core/Console.h"
 
-namespace spc
+namespace eng
 {
-    namespace eng
+    class Render
     {
-        class Render
-        {
-        public:
+    public:
 
             
-        private:
+    private:
 
-        };
-    }
+    };
 }

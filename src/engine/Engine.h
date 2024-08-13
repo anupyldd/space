@@ -3,17 +3,14 @@
 #include "../core/Logging.h"
 #include "../core/FileHandling.h"
 
-namespace spc
+namespace eng
 {
-    namespace eng
+    class Engine
     {
-        class Engine
-        {
-        public:
+    public:
 
 
-        private:
+    private:
 
-        };
-    }
+    };
 }

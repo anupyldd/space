@@ -1,33 +1,58 @@
-﻿#include <iostream>
+#include <iostream>
 #include "core/Types.h"
 #include "core/Console.h"
 #include "core/Logging.h"
 #include "core/Exception.h"
 #include "engine/Engine.h"
 #include <format>
+#include "engine/Localization.h"
+#include "core/Fsm.h"
 
-using namespace spc;
-using namespace spc::file;
+using namespace file;
+using namespace eng::loc;
 int main(int argc, char** argv)
 {
     con::Init();
+    /*
+    Localization loc;
+    loc.LoadFiles({ "res/test.txtloc", "res/test2.txtloc" });
+    lg::Info(std::to_string(loc.GetLoadedFilesNum()));
+    lg::Output(loc.GetFileContents("test2.txtloc"));
+    */
 
+
+    /*
     try
     {
         File fl;
-        log::Info(fl.Read("test.txt"));
+        lg::Info(fl.Read("res/test.txtloc"));
     }
     catch (const exc::IException& e)
     {
-        log::Error(e.What());
+        lg::Error(e.What());
     }
-    log::Info("file now should be out of scope");
+    catch (...)
+    {
+        lg::Error("something went wrong");
+    }
+    */
+    //con::PrintN("юникод");
+    //std::string s = "т";
+    con::Print("тест");
+    //std::wstring str = con::Utf8ToUtf16(s);
+    /*
+    unsigned short* vtemp = (unsigned short*)str.c_str();
+    for (int i = 0; i < str.length(); ++i)
+    {
+        std::wcout << (unsigned short)((unsigned char)vtemp[i]) << " ";
+    }
+    */
     /*
     String s2 = "текст текст";
-    log::Debug(s2);
-    log::Info(s2);
-    log::Warning(s2);
-    log::Error(s2);
+    lg::Debug(s2);
+    lg::Info(s2);
+    lg::Warning(s2);
+    lg::Error(s2);
     */
 
     //std::cout << "\x1b[31mMagenta\x1b[0m";

@@ -1,0 +1,93 @@
+// this is a one line comment
+/*
+ * And here starts a multiline comment (you don't have to put a star on each line, it only checks for /* */).
+ * General structure looks like this:
+ *
+ * 	[id]
+ * 	[lang code.variation] text {insert} text
+ * 
+ * ISO 639-1 language codes are used (https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes).
+ * Id's cannot start with a number, be equal to a language code or a reserved word,
+ * contain a space, tab or a new line.
+ * Reserved words (more like symbols but anyway): s, n, t (more on them later).
+ * Everything after language code is treated as text (preceding and trailing spaces and tabs are ignored).
+ */
+
+[name]
+[en] John
+[ru] Джон
+
+// you can insert text from other ids into text using {}
+[greeting]
+[en] Hello, {name}, how are you
+[ru] Привет, {name}, как жизнь
+
+// you can create variations for languages to handle grammar changes
+// names of variations are arbitrary
+// before creating variations, you'll need to have a default variant
+// here [en] defines a default, and [en.mult] is a variation
+[items]
+[en] book
+[en.mult] books
+[ru] книга
+[ru.mult] книги
+
+// and then you can choose which version to insert
+// if no such variation is present, the default one will be inserted
+// so you don't have to define variations for languages that don't need them
+[inventory]
+[en] Does he have 1 {item} or 3 {items.mult}?
+[ru] У него 1 {item} или 3 {items.mult}?
+
+// you can insert arguments from code in std::format style using ltf::Format
+// arguments that are not provided will be filled with default MISSING_ARG value
+// an argument can be anything that can be converted into std::string
+[age]
+[en] {name} is {} years and {} months old
+[ru] Возраст {name}: {} лет и {} месяца
+
+// {age} requires 2 arguments, and {repeat} requires one of its own
+// so you'll need to provide 3 arguments here
+// so the function call will look smth like ltf::Format("repeat", 20, 3, 5)
+[repeat]
+[en] He said "{age}" {} times
+[ru] Он повторил "{age}" {} раз
+
+// there are some inserts provided by default
+// {n} for new line
+// {s} for space
+// {t} for tab
+[many_lines]
+[en] {t}Some text may be too long {n}for a single line{s}
+[ru] {t}Иногда текст слишком длинный {n}для одной строки{s}
+
+// you can also make multiline text just by typing out multiple lines,
+// since everything between [] blocks is considered text
+[more_lines]
+[en]
+This text is considerably
+longer than any of those presented
+before, so it is broken downs into
+several lines
+
+[ru]
+Этот текст значительно длиннее 
+предыдущих, поэтому он разбит
+на несколько строк
+
+// to escape a new line use the \ character
+[one_line]
+[en]
+This text is\
+no longer multiline,\
+and this also works on ids: \{name\}
+
+[ru]
+Этот текст больше\
+не многострочный,\
+и это также работает на id: \{name\}
+
+// if a line is the same in several languages, you can list 
+// their codes one after another separated by commas to avoid duplication
+[company_name]
+[en][ru] Company & Co

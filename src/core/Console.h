@@ -2,6 +2,7 @@
 
 #include "Types.h"
 
+#include "exception"
 #include <cstdint>
 #include <type_traits>
 #include <format>
@@ -34,61 +35,55 @@
 
 // API ---------------------------------
 
-namespace spc
+namespace con
 {
-    namespace con
+    inline void Init(); // must be called before any printing
+
+    inline std::wstring Utf8ToUtf16(const String& str8);
+    inline String Utf16ToUtf8(const std::wstring& str16);
+
+    inline void Print(const String& str);
+    inline void PrintN(const String& str);
+    inline void Input(String& str);
+
+    enum ColorANSI : uint8_t
     {
-        inline void Init(); // must be called before any printing
+        NONE            = 0,
+        BLACK           = 30,
+        RED             = 31,
+        GREEN           = 32,
+        YELLOW          = 33,
+        BLUE            = 34,
+        MAGENTA         = 35,
+        CYAN            = 36,
+        WHITE           = 37,
+        BRIGHT_BLACK    = 90,
+        BRIGHT_RED      = 91,
+        BRIGHT_GREEN    = 92,
+        BRIGHT_YELLOW   = 93,
+        BRIGHT_BLUE     = 94,
+        BRIGHT_MAGENTA  = 95,
+        BRIGHT_CYAN     = 96,
+        BRIGHT_WHITE    = 97
+    };
 
-        inline std::wstring Utf8ToUtf16(const String& str8);
-        inline String Utf16ToUtf8(const std::wstring& str16);
-
-        inline void Print(const String& str);
-        inline void PrintN(const String& str);
-        inline void Input(String& str);
-
-        enum ColorANSI : uint8_t
-        {
-            NONE            = 0,
-            BLACK           = 30,
-            RED             = 31,
-            GREEN           = 32,
-            YELLOW          = 33,
-            BLUE            = 34,
-            MAGENTA         = 35,
-            CYAN            = 36,
-            WHITE           = 37,
-            BRIGHT_BLACK    = 90,
-            BRIGHT_RED      = 91,
-            BRIGHT_GREEN    = 92,
-            BRIGHT_YELLOW   = 93,
-            BRIGHT_BLUE     = 94,
-            BRIGHT_MAGENTA  = 95,
-            BRIGHT_CYAN     = 96,
-            BRIGHT_WHITE    = 97
-        };
-
-        inline String SetStringColor(const String& str, ColorANSI txtCol, ColorANSI bgCol);
-    }
+    inline String SetStringColor(const String& str, ColorANSI txtCol, ColorANSI bgCol);
 }
 
 // -------------------------------------
 
-namespace spc
-{
-
 #if defined(_WIN64) || defined(_WIN32)
-    // Windows ----------
+// Windows ----------
 
-    static HANDLE stdoutHandle;
-    static DWORD outModeInit;
+static HANDLE stdoutHandle;
+static DWORD outModeInit;
 
-    namespace con
+namespace con
+{
+    // internal functions
+    namespace itrn
     {
-        // internal functions
-        namespace itrn
-        {
-            inline void EnableANSI()
+        inline void EnableANSI()
         {
             DWORD outMode = 0;
             stdoutHandle = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -112,115 +107,136 @@ namespace spc
             }
         }
 
-            inline void InitLocale()
+        inline void InitLocale()
+        {
+        #if MS_STDLIB_BUGS
+            constexpr char cp_utf16le[] = ".1200";
+            setlocale(LC_ALL, cp_utf16le);
+            _setmode(_fileno(stdout), _O_WTEXT);
+        #else
+            constexpr char locale_name[] = "en_US.utf8";
+            setlocale(LC_ALL, locale_name);
+            std::locale::global(std::locale(locale_name));
+            std::wcin.imbue(std::locale())
+                std::wcout.imbue(std::locale());
+        #endif
+        }
+
+        // for getting underlying value from enum class members
+        template<typename T>
+        constexpr inline auto GetUnderlying(T ecm) -> typename std::underlying_type<T>::type
+        {
+            return static_cast<typename std::underlying_type<T>::type>(ecm);
+        }
+
+        template<typename T>
+        inline void PrintBytes(const T& str)
+        {
+            unsigned short* vtemp = (unsigned short*)str.c_str();
+            for (int i = 0; i < str.length(); ++i)
             {
-            #if MS_STDLIB_BUGS
-                constexpr char cp_utf16le[] = ".1200";
-                setlocale(LC_ALL, cp_utf16le);
-                _setmode(_fileno(stdout), _O_WTEXT);
-            #else
-                constexpr char locale_name[] = "en_US.utf8";
-                setlocale(LC_ALL, locale_name);
-                std::locale::global(std::locale(locale_name));
-                std::wcin.imbue(std::locale())
-                    std::wcout.imbue(std::locale());
-            #endif
+                std::wcout << (unsigned short)((unsigned char)vtemp[i]) << " ";
             }
-
-            // for getting underlying value from enum class members
-            template<typename T>
-            constexpr inline auto GetUnderlying(T ecm) -> typename std::underlying_type<T>::type
-            {
-                return static_cast<typename std::underlying_type<T>::type>(ecm);
-            }
-        }
-        // -----------------
-        inline void Init()
-        {
-            itrn::InitLocale();
-            itrn::EnableANSI();
-            SetConsoleOutputCP(65001);
-        }
-
-        inline std::wstring Utf8ToUtf16(const String& str)
-        {
-            if (str.empty()) return std::wstring();
-
-            int required = MultiByteToWideChar(CP_THREAD_ACP, 0, str.data(), (int)str.size(), NULL, 0);
-            if (required == 0) return std::wstring();
-
-            std::wstring wstr;
-            wstr.resize(required);
-
-            int converted = MultiByteToWideChar(CP_THREAD_ACP, 0, str.data(), (int)str.size(), &wstr[0], wstr.capacity());
-            if (converted == 0) return std::wstring();
-
-            return wstr;
-        }
-
-        inline std::string Utf16ToUtf8(const std::wstring& wstr)
-        {
-            if (wstr.empty()) return std::string();
-
-            int required = WideCharToMultiByte(CP_THREAD_ACP, 0, wstr.data(), (int)wstr.size(), NULL, 0, NULL, NULL);
-            if (0 == required) return std::string();
-
-            std::string str;
-            str.resize(required);
-
-            int converted = WideCharToMultiByte(CP_THREAD_ACP, 0, wstr.data(), (int)wstr.size(), &str[0], str.capacity(), NULL, NULL);
-            if (0 == converted) return std::string();
-
-            return str;
-        }
-
-        inline void Print(const String& str) 
-        {
-            std::wcout << Utf8ToUtf16(str);
-        }
-
-        inline void PrintN(const String& str) 
-        {
-            std::wcout << Utf8ToUtf16(str) << L'\n';
-        }
-
-        inline void Input(String& str) 
-        {
-            std::wstring wstr;
-            std::wcin >> wstr;
-            str = Utf16ToUtf8(wstr);
-        }
-
-        inline String SetStringColor(const String& str, ColorANSI txtCol, ColorANSI bgCol)
-        {
-            if (bgCol == ColorANSI::NONE)
-                return std::format("\x1b[{}m{}\x1b[0m", itrn::GetUnderlying(txtCol), str);
-
-            return std::format("\x1b[{};{}m{}\x1b[0m",
-                itrn::GetUnderlying(txtCol), itrn::GetUnderlying(bgCol) + 10, str);
+            std::wcout << std::endl;
         }
     }
+    // -----------------
+    inline void Init()
+    {
+        itrn::InitLocale();
+        itrn::EnableANSI();
+        SetConsoleOutputCP(65001);
+    }
+
+    inline std::wstring Utf8ToUtf16(const String& str)
+    {
+        if (str.empty()) return std::wstring();
+        /*
+        // check for BOM, skip if present
+        const char* data = str.data();
+        int size = static_cast<int>(str.size());
+        if (size >= 3 && static_cast<unsigned char>(data[0]) == 0xEF && static_cast<unsigned char>(data[1]) == 0xBB && static_cast<unsigned char>(data[2]) == 0xBF)
+        {
+            data += 3;
+            size -= 3;
+        }
+        */
+
+        int required = MultiByteToWideChar(CP_UTF8, 0, str.data(), static_cast<int>(str.size()), NULL, 0);
+        if (required <= 0) return std::wstring();
+
+        std::wstring wstr;
+        wstr.resize(required);
+
+        int converted = MultiByteToWideChar(CP_UTF8, 0, str.data(), static_cast<int>(str.size()), &wstr[0], required);
+        if (converted == 0) return std::wstring();
+
+        return wstr;
+    }
+
+    inline std::string Utf16ToUtf8(const std::wstring& wstr)
+    {
+        if (wstr.empty()) return std::string();
+
+        int required = WideCharToMultiByte(CP_UTF8, 0, wstr.data(), (int)wstr.size(), NULL, 0, NULL, NULL);
+        if (required == 0) return std::string();
+
+        std::string str;
+        str.resize(required);
+
+        int converted = WideCharToMultiByte(CP_UTF8, 0, wstr.data(), (int)wstr.size(), &str[0], str.capacity(), NULL, NULL);
+        if (0 == converted) return std::string();
+
+        return str;
+    }
+
+    inline void Print(const String& str) 
+    {
+        std::wcout << Utf8ToUtf16(str);
+    }
+
+    inline void PrintN(const String& str) 
+    {
+        std::wcout << Utf8ToUtf16(str) << L'\n';
+    }
+
+    inline void Input(String& str) 
+    {
+        std::wstring wstr;
+        std::wcin >> wstr;
+        str = Utf16ToUtf8(wstr);
+    }
+
+    inline String SetStringColor(const String& str, ColorANSI txtCol, ColorANSI bgCol)
+    {
+        if (bgCol == ColorANSI::NONE)
+            return std::format("\x1b[{}m{}\x1b[0m", itrn::GetUnderlying(txtCol), str);
+
+        return std::format("\x1b[{};{}m{}\x1b[0m",
+            itrn::GetUnderlying(txtCol), itrn::GetUnderlying(bgCol) + 10, str);
+    }
+}
 
 #elif defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__))
-    // Unix -------------
+// Unix -------------
 
-    namespace con
+namespace con
+{
+    inline void Init() {}
+
+    inline void Print(const String& str) { std::cout << str; }
+    inline void PrintN(const String& str) { std::cout << str << '\n'; }
+    inline void Input(String& str) { std::cin >> str; }
+
+    inline String SetStringColor(const String& str, ColorANSI txtCol, ColorANSI bgCol)
     {
-        inline void Init() {}
+        if (bgCol == ColorANSI::NONE)
+            return std::format("\x1b[{}m{}\x1b[0m", itrn::GetUnderlying(txtCol), str);
 
-        inline void Print(const String& str) { std::cout << str; }
-        inline void PrintN(const String& str) { std::cout << str << '\n'; }
-        inline void Input(String& str) { std::cin >> str; }
-
-        inline String SetStringColor(const String& str, ColorANSI txtCol, ColorANSI bgCol)
-        {
-            if (bgCol == ColorANSI::NONE)
-                return std::format("\x1b[{}m{}\x1b[0m", itrn::GetUnderlying(txtCol), str);
-
-            return std::format("\x1b[{};{}m{}\x1b[0m",
-                itrn::GetUnderlying(txtCol), itrn::GetUnderlying(bgCol) + 10, str);
-        }
+        return std::format("\x1b[{};{}m{}\x1b[0m",
+            itrn::GetUnderlying(txtCol), itrn::GetUnderlying(bgCol) + 10, str);
     }
+}
 
 #else
 
@@ -228,4 +244,3 @@ namespace spc
 
 #endif
 
-}

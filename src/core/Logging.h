@@ -5,35 +5,32 @@
 #include "Types.h"
 #include "Console.h"
 
-namespace spc
+namespace lg
 {
-    namespace log
+    inline void Output(const String& str)
     {
-        inline void Output(const String& str)
-        {
-            con::Print(str);
-        }
+        con::Print(str);
+    }
 
-        inline void Debug(const String& str)
-        {
-            #if _DEBUG
-            con::PrintN(con::SetStringColor("[DEBUG]   " + str, con::BLUE, con::NONE));
-            #endif
-        }
+    inline void Debug(const String& str)
+    {
+        #if _DEBUG
+        con::PrintN(con::SetStringColor("[DEBUG]   " + str, con::BLUE, con::NONE));
+        #endif
+    }
 
-        inline void Info(const String& str)
-        {
-            con::PrintN(con::SetStringColor("[INFO]    " + str, con::GREEN, con::NONE));
-        }
+    inline void Info(const String& str)
+    {
+        con::PrintN(con::SetStringColor("[INFO]    " + str, con::GREEN, con::NONE));
+    }
 
-        inline void Warning(const String& str)
-        {
-            con::PrintN(con::SetStringColor("[WARNING] " + str, con::BLACK, con::YELLOW));
-        }
+    inline void Warning(const String& str)
+    {
+        con::PrintN(con::SetStringColor("[WARNING] " + str, con::BLACK, con::YELLOW));
+    }
 
-        inline void Error(const String& str)
-        {
-            con::PrintN(con::SetStringColor("[ERROR]   " + str, con::WHITE, con::RED));
-        }
+    inline void Error(const String& str)
+    {
+        con::PrintN(con::SetStringColor("[ERROR]   " + str, con::WHITE, con::RED));
     }
 }

@@ -4,6 +4,7 @@
 // for a sample demonstrating the format check the misc folder.
 
 #include "Fsm.h"
+#include "Language.h"
 
 #include <optional>
 #include <string>
@@ -12,17 +13,23 @@
 
 namespace ltf
 {
-    namespace itrn
-    {
-        
-    }
+    using namespace lang;
 
     class Parser
     {
     public:
+        void Init()
+        {
+            LoadLanguageMap(m_langCodes);
+        }
+
+        bool CreateIndex()
+        {
+
+        }
 
     private:
-        
+        std::unordered_map<std::string, Language> m_langCodes;
 
     private:
         constexpr char O_BRACKET = '[';

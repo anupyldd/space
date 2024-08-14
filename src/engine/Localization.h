@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../core/Core.h"
+#include "../core/Language.h"
 
 #include <initializer_list>
 #include <vector>
@@ -14,11 +15,9 @@ namespace eng
 {
     namespace loc
     {
+        using namespace lang;
+
         class MultiStr; // can store multiple variations of a string for different languages
-
-        enum class Language;
-        inline String GetLanguageCode(Language lang) noexcept;
-
 
         // -------------------------
 
@@ -58,25 +57,6 @@ namespace eng
         };
 
         // -------------------------
-
-        enum class Language
-        {
-            NONE,
-            ENGLISH,
-            RUSSIAN,
-            JAPANESE
-        };
-
-        inline String GetLanguageCode(Language lang) noexcept
-        {
-            switch (lang)
-            {
-            case Language::ENGLISH:  return "en";
-            case Language::RUSSIAN:  return "ru";
-            case Language::JAPANESE: return "jp";
-            default: return "none";
-            }
-        }
 
         class MultiStr
         {

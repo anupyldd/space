@@ -6,7 +6,7 @@
  * 	[id]
  * 	[lang code.variation] text {insert} text
  * 
- * ISO 639 language codes are used (https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes).
+ * ISO 639-1 language codes are used (https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes).
  * Id's cannot start with a number, be equal to a language code or a reserved word,
  * contain a space, tab or a new line.
  * Reserved words (more like symbols but anyway): s, n, t (more on them later).

@@ -150,7 +150,6 @@ namespace con
 
     inline std::wstring Utf8ToUtf16(const String& str)
     {
-        itrn::PrintBytes(str);
         if (str.empty()) return std::wstring();
         /*
         // check for BOM, skip if present
@@ -165,15 +164,12 @@ namespace con
 
         int required = MultiByteToWideChar(CP_UTF8, 0, str.data(), static_cast<int>(str.size()), NULL, 0);
         if (required <= 0) return std::wstring();
-        itrn::PrintBytes(str);
 
         std::wstring wstr;
         wstr.resize(required);
-        itrn::PrintBytes(wstr);
 
         int converted = MultiByteToWideChar(CP_UTF8, 0, str.data(), static_cast<int>(str.size()), &wstr[0], required);
         if (converted == 0) return std::wstring();
-        itrn::PrintBytes(wstr);
 
         return wstr;
     }

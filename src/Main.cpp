@@ -37,8 +37,8 @@ int main(int argc, char** argv)
     }
     */
     //con::PrintN("юникод");
-    std::string s = "т";
-    con::Print(s);
+    //std::string s = "т";
+    con::Print("тест");
     //std::wstring str = con::Utf8ToUtf16(s);
     /*
     unsigned short* vtemp = (unsigned short*)str.c_str();

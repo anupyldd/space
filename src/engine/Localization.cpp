@@ -4,6 +4,8 @@ namespace eng
 {
     namespace loc
     {
+        Language Localization::m_gameLang;
+
         void Localization::LoadFiles(std::initializer_list<std::filesystem::path> paths)
         {
             for (const auto& path : paths)
@@ -82,7 +84,7 @@ namespace eng
             // TODO: save new lang to config
         }
 
-        Language Localization::GetLanguage() const
+        Language Localization::GetLanguage()
         {
             return m_gameLang;
         }

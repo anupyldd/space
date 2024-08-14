@@ -14,10 +14,10 @@ namespace eng
 {
     namespace loc
     {
-        struct MultiStr;
+        class MultiStr; // can store multiple variations of a string for different languages
 
         enum class Language;
-        inline String GetLanguageCode(Language lang);
+        inline String GetLanguageCode(Language lang) noexcept;
 
 
         // -------------------------
@@ -25,21 +25,20 @@ namespace eng
         class Localization
         {
         public:
-            Localization() = default;
+            void            LoadFiles(std::initializer_list<std::filesystem::path> paths);  // files will be added to a map, where keys are file names and values are LocFile objects
+            void            UnloadFiles(std::initializer_list<String> fileNames);
+            void            UnloadFilesAll();
 
-            void        LoadFiles(std::initializer_list<std::filesystem::path> paths);  // files will be added to a map, where keys are file names and values are LocFile objects
-            void        UnloadFiles(std::initializer_list<String> fileNames);
-            void        UnloadFilesAll();
+            void            CreateFileIndex(std::initializer_list<String> fileNames);  // parses requested files and creates index for tags to make searching quicker
+            void            LoadFileIntoMap(const String& fileName, std::unordered_map<String, String>& map);   // loads a file into a provided tag-text map
+            
+            String          GetStrByTag(const String& tag) const;
+            String          GetFileContents(const String& fileName);
 
-            void        CreateFileIndex(std::initializer_list<String> fileNames);  // parses requested files and creates index for tags to make searching quicker
-            void        LoadFileIntoMap(const String& fileName, std::unordered_map<String, String>& map);   // loads a file into a provided tag-text map
-            String      GetStrByTag(const String& tag) const;
-            String      GetFileContents(const String& fileName);
+            uint16_t        GetLoadedFilesNum() const;
 
-            uint16_t    GetLoadedFilesNum() const;
-
-            void        SetLanguage(Language lang);
-            Language    GetLanguage() const;
+            void            SetLanguage(Language lang);
+            static Language GetLanguage();
 
         private:
             struct LocFile
@@ -54,28 +53,44 @@ namespace eng
 
 
         private:
-            Language                                m_gameLang;
-            std::unordered_map<String, LocFile>  m_loadedLocFiles;
+            static Language                     m_gameLang;
+            std::unordered_map<String, LocFile> m_loadedLocFiles;
         };
 
         // -------------------------
 
         enum class Language
         {
+            NONE,
             ENGLISH,
             RUSSIAN,
             JAPANESE
         };
 
-        inline String GetLanguageCode(Language lang)
+        inline String GetLanguageCode(Language lang) noexcept
         {
             switch (lang)
             {
-            case Language::ENGLISH: return "en";
-            case Language::RUSSIAN: return "ru";
+            case Language::ENGLISH:  return "en";
+            case Language::RUSSIAN:  return "ru";
             case Language::JAPANESE: return "jp";
-            default: throw exc::EngineException("Unknown language");
+            default: return "none";
             }
         }
+
+        class MultiStr
+        {
+        public:
+            MultiStr() = default;
+            MultiStr(Language lang, const String& str) { m_locMap[lang] = str; }
+
+            void Set(Language lang, const String& str) { m_locMap[lang] = str; }
+
+            String operator()() { return m_locMap.at(Localization::GetLanguage()); }
+            String operator()(Language lang) { return m_locMap.at(lang); }
+
+        private:
+            std::unordered_map<Language, String> m_locMap;
+        };
     }
 }

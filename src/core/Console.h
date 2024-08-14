@@ -84,28 +84,28 @@ namespace con
     namespace itrn
     {
         inline void EnableANSI()
-    {
-        DWORD outMode = 0;
-        stdoutHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-
-        if (stdoutHandle == INVALID_HANDLE_VALUE)
         {
-            exit(GetLastError());
-        }
+            DWORD outMode = 0;
+            stdoutHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 
-        if (!GetConsoleMode(stdoutHandle, &outMode))
-        {
-            exit(GetLastError());
-        }
+            if (stdoutHandle == INVALID_HANDLE_VALUE)
+            {
+                exit(GetLastError());
+            }
 
-        outModeInit = outMode;
-        outMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+            if (!GetConsoleMode(stdoutHandle, &outMode))
+            {
+                exit(GetLastError());
+            }
 
-        if (!SetConsoleMode(stdoutHandle, outMode))
-        {
-            exit(GetLastError());
+            outModeInit = outMode;
+            outMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+
+            if (!SetConsoleMode(stdoutHandle, outMode))
+            {
+                exit(GetLastError());
+            }
         }
-    }
 
         inline void InitLocale()
         {
@@ -128,6 +128,17 @@ namespace con
         {
             return static_cast<typename std::underlying_type<T>::type>(ecm);
         }
+
+        template<typename T>
+        inline void PrintBytes(const T& str)
+        {
+            unsigned short* vtemp = (unsigned short*)str.c_str();
+            for (int i = 0; i < str.length(); ++i)
+            {
+                std::wcout << (unsigned short)((unsigned char)vtemp[i]) << " ";
+            }
+            std::wcout << std::endl;
+        }
     }
     // -----------------
     inline void Init()
@@ -139,6 +150,7 @@ namespace con
 
     inline std::wstring Utf8ToUtf16(const String& str)
     {
+        itrn::PrintBytes(str);
         if (str.empty()) return std::wstring();
         /*
         // check for BOM, skip if present
@@ -153,12 +165,15 @@ namespace con
 
         int required = MultiByteToWideChar(CP_UTF8, 0, str.data(), static_cast<int>(str.size()), NULL, 0);
         if (required <= 0) return std::wstring();
+        itrn::PrintBytes(str);
 
         std::wstring wstr;
         wstr.resize(required);
+        itrn::PrintBytes(wstr);
 
         int converted = MultiByteToWideChar(CP_UTF8, 0, str.data(), static_cast<int>(str.size()), &wstr[0], required);
         if (converted == 0) return std::wstring();
+        itrn::PrintBytes(wstr);
 
         return wstr;
     }
@@ -168,7 +183,7 @@ namespace con
         if (wstr.empty()) return std::string();
 
         int required = WideCharToMultiByte(CP_UTF8, 0, wstr.data(), (int)wstr.size(), NULL, 0, NULL, NULL);
-        if (0 == required) return std::string();
+        if (required == 0) return std::string();
 
         std::string str;
         str.resize(required);

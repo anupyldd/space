@@ -14,7 +14,7 @@ namespace util
         size_t begin = 0;
         for (size_t i = 0; i < str.size(); ++i)
         {
-            if (str[i] != ' ' || str[i] != '\t')
+            if (str[i] != ' ' && str[i] != '\t')
             {
                 begin = i;
                 break;
@@ -27,9 +27,9 @@ namespace util
     inline std::string TrimRight(const std::string& str)
     {
         size_t end = 0;
-        for (size_t i = str.size(); i >= 0; --i)
+        for (size_t i = str.size(); i != 0; --i)
         {
-            if (str[i] != ' ' || str[i] != '\t')
+            if (str[i] != ' ' && str[i] != '\t')
             {
                 end = i;
                 break;

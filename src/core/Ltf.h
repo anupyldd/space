@@ -156,35 +156,41 @@ namespace file
             {
                 if (Map()) m_ready = true;
             }
+            return false;
         }
         
         bool CreateIndex(Language ln)
         {
             if (!m_ready) return false;
-            if (m_locIndex) m_locIndex.value().clear();
+            m_locIndex.clear();
 
         }
 
         bool CreateIndexAll()
         {
             if (!m_ready) return false;
-            if (m_locIndex) m_locIndex.value().clear();
+            m_locIndex.clear();
 
         }
 
         bool CreateMap(Language ln)
         {
             if (!m_ready) return false;
-            if (m_locMap) m_locMap.value().clear();
-
+            m_locMap.clear();
+            m_Parse(ParseDest::MAP, ln);
         }
 
         bool CreateMapAll()
         {
             if (!m_ready) return false;
-            if (m_locMap) m_locMap.value().clear();
+            m_locMap.clear();
 
         }
+
+    public:
+
+        std::unordered_map<std::string, itrn::MultiStr>& GetMap() { return m_locMap; }
+        std::unordered_map<std::string, itrn::MultiLocIndex>& GetIndex() { return m_locIndex; }
 
     private:
         friend struct itrn::LtfEntryBuilder;
@@ -198,10 +204,14 @@ namespace file
 
             try
             {
-                std::string_view sv(GetContent());
+                std::string contents = GetContent();
+                std::string_view sv(contents);
                 for (size_t i = 0; i < sv.size(); i++)
                 {
                     m_curState->Process(*this, m_entryBuilder, sv, i, dest, ln);
+                    
+                    lg::Debug(std::format("LtfEntryBuilder state:\n- begin: {}\n- end: {}\n- lan: {}\n- id: {}\n- var: {}\n- text: {}",
+                        (void*)m_entryBuilder.begin, (void*)m_entryBuilder.end, lang::GetLanguageCodeStr(m_entryBuilder.lan), m_entryBuilder.id, m_entryBuilder.var, m_entryBuilder.text.str()));
                 }
             }
             catch (const exc::IException& e)
@@ -228,34 +238,24 @@ namespace file
             {
                 using namespace itrn;
 
-                try
+                if (dest == ParseDest::MAP)
                 {
-
-                    if (dest == ParseDest::MAP)
-                    {
-                        if (var.empty()) f.m_locMap.value()[id] = MultiStr{ lan, text.str() };
-                        else f.m_locMap.value()[id] = MultiStr{ lan, var, text.str() };
-                    }
-                    else
-                    {
-                        if (var.empty()) f.m_locIndex.value()[id] = MultiLocIndex{ lan, begin, end };
-                        else f.m_locIndex.value()[id] = MultiLocIndex{ lan, var, begin, end };
-                    }
-
-                    Clear();
+                    if (var.empty()) f.m_locMap[id] = MultiStr{ lan, text.str() };
+                    else f.m_locMap[id] = MultiStr{ lan, var, text.str() };
                 }
-                catch (...)
+                else
                 {
-                    lg::Error("Failed to register value from LTF Entry Builder");
+                    if (var.empty()) f.m_locIndex[id] = MultiLocIndex{ lan, begin, end };
+                    else f.m_locIndex[id] = MultiLocIndex{ lan, var, begin, end };
                 }
+
+                Clear();
             }
 
-            uint32_t            begin,
-                end;
-            Language            lan;
-            std::string         id,
-                var;
-            std::stringstream   text;
+            uint32_t begin, end;
+            Language lan;
+            std::string id, var;
+            std::stringstream text;
         };
 
         struct LtfParserState
@@ -271,22 +271,29 @@ namespace file
                 {
                 case '/':
                 {
-                    if (sv[i + 1] == '/') i = sv.find_first_of('\n');       // one line comment
+                    if (sv[i + 1] == '/') i = sv.substr(i).find_first_of('\n');       // one line comment
                     else if (sv[i + 1] == '*') owner.m_curState = owner.ltfCommentState;   // multi line comment
                     else throw exc::CoreException(std::format("LTF parsing error: unexpected '/' at position {}", i));
+                    break;
                 }
                 case '[':
                 {
-                    std::string val(sv.substr(i, sv.find_first_of(']')));
-                    if (val.find('.') != val.npos) owner.m_curState = owner.ltfLangState;
+                    std::string val(sv.substr(i + 1, sv.substr(i).find_first_of(']') - 1));
+                    val = util::Trim(val);
+                    if (val.find('.') != val.npos || lang::langCodesSL.contains(val)) owner.m_curState = owner.ltfLangState;
                     else owner.m_curState = owner.ltfIdState;
+                    break;
                 }
                 case ' ':
+                case '\r':
                 case '\t':
+                case '\n':
                     owner.m_curState = owner.ltfGlobalState;
+                    break;
 
                 default:
                     throw exc::CoreException(std::format("LTF parsing error: unexpected '{}' at position {}", sv[i], i));
+                    break;
                 }
             }
         };
@@ -306,17 +313,18 @@ namespace file
                         owner.m_curState = owner.ltfGlobalState;
                     }
                     // if there's id but nothing else, then the entry is incorrect
-                    else throw exc::CoreException(std::format("LTF parsing error: expected language code after identifier {}", bld.id));
+                    else throw exc::CoreException(std::format("LTF parsing error: expected language code after identifier [{}]", bld.id));
 
                     return;
                 }
 
-                std::string id(sv.substr(i, sv.find_first_of(']')));
-                if (!CorrectLtfId(id)) throw exc::CoreException(std::format("LTF parsing error: invalid id: {}", id));
+                size_t idEnd = sv.substr(i).find_first_of(']');
+                std::string id(sv.substr(i, idEnd));
+                if (!CorrectLtfId(id)) throw exc::CoreException(std::format("LTF parsing error: invalid id [{}]", id));
                 else
                 {
                     bld.id = id;
-                    ++i;
+                    i += idEnd;
                     owner.m_curState = owner.ltfGlobalState;
                 }
             }
@@ -326,7 +334,8 @@ namespace file
         {
             virtual void Process(LtfFile& owner, LtfEntryBuilder& bld, std::string_view sv, size_t& i, ParseDest dest, Language ln = Language::NONE) override
             {
-                std::string lan(sv.substr(i, sv.find_first_of(']')));
+                size_t lanEnd = sv.substr(i).find_first_of(']');
+                std::string lan(sv.substr(i, lanEnd));
                 if (lan.empty() || !lang::langCodesSL.contains(lan))
                     throw exc::CoreException(std::format("LTF parsing error: invalid language code: {}", lan));
 
@@ -345,6 +354,7 @@ namespace file
                     bld.var = var;
                 }
 
+                i += lanEnd;
                 bld.lan = lang::GetLanguageCodeEnum(lan);
 
                 owner.m_curState = owner.ltfTextState;
@@ -355,6 +365,7 @@ namespace file
         {
             virtual void Process(LtfFile& owner, LtfEntryBuilder& bld, std::string_view sv, size_t& i, ParseDest dest, Language ln = Language::NONE) override
             {
+
                 if (sv[i] == '\n' && sv[i - 1] != '\\')
                 {
                     owner.m_curState = owner.ltfGlobalState;
@@ -397,8 +408,8 @@ namespace file
         LtfEntryBuilder                   m_entryBuilder;
         std::shared_ptr<LtfParserState>   m_curState;
 
-        std::optional<std::unordered_map<std::string, itrn::MultiStr>>      m_locMap;
-        std::optional<std::unordered_map<std::string, itrn::MultiLocIndex>> m_locIndex;
+        std::unordered_map<std::string, itrn::MultiStr>      m_locMap;
+        std::unordered_map<std::string, itrn::MultiLocIndex> m_locIndex;
     };
     
 }

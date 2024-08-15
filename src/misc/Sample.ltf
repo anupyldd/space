@@ -1,6 +1,6 @@
 // this is a one line comment
 /*
- * And here starts a multiline comment (you don't have to put a star on each line, it only checks for /* */).
+ * And here starts a multiline comment (you don't have to put a star on each line).
  * General structure looks like this:
  *
  * 	[id]

@@ -126,7 +126,9 @@ namespace file
             std::unordered_map<LanguageVariation, IndexPair, LanVarHash> m_indexMap;
         };
 
-        const std::regex ltfIdReg("^[A-Za-z0-9]+$");
+        // for ltf parser
+        struct LtfEntryBuilder;
+        const std::regex ltfIdReg("^[A-Za-z0-9_-]+$");
 
         bool CorrectLtfId(const std::string& id)
         {
@@ -141,35 +143,34 @@ namespace file
             return true;
         }
 
-        // for ltf parser
         enum class ParseDest { MAP, INDEX };
 
         struct LtfParserState 
         { 
-            virtual std::shared_ptr<LtfParserState> Process(std::string_view sv, size_t& i, ParseDest dest, Language ln = Language::NONE) = 0;
+            virtual void Process(LtfFile& ltf, LtfEntryBuilder& bld, std::string_view sv, size_t& i, ParseDest dest, Language ln = Language::NONE) = 0;
         };
 
         struct LtfGlobalState : public LtfParserState
         {
-            virtual std::shared_ptr<LtfParserState> Process(std::string_view sv, size_t& i, ParseDest dest, Language ln = Language::NONE) override
+            virtual void Process(LtfFile& ltf, LtfEntryBuilder& bld, std::string_view sv, size_t& i, ParseDest dest, Language ln = Language::NONE) override
             {
                 switch (sv[i])
                 {
                 case '/':
                 {
                     if (sv[i + 1] == F_SLASH) i = sv.find_first_of('\n');       // one line comment
-                    else if (sv[i + 1] == STAR) return ltfCommentState;   // multi line comment
+                    else if (sv[i + 1] == STAR) ltf.m_curState = ltfCommentState;   // multi line comment
                     else throw exc::CoreException(std::format("LTF parsing error: unexpected '/' at position {}", i));
                 }
                 case '[':
                 {
                     std::string val(sv.substr(i, sv.find_first_of(']')));
-                    if (lang::langCodesSL.contains(val)) return ltfLangState;
-                    else return ltfIdState;
+                    if(val.find('.') != val.npos) ltf.m_curState = ltfLangState;
+                    else ltf.m_curState = ltfIdState;
                 }
                 case ' ':
                 case '\t':
-                    return ltfGlobalState;
+                    ltf.m_curState = ltfGlobalState;
 
                 default:
                     throw exc::CoreException(std::format("LTF parsing error: unexpected '{}' at position {}", sv[i], i));
@@ -180,46 +181,140 @@ namespace file
 
         struct LtfIdState : public LtfParserState
         {
-            virtual std::shared_ptr<LtfParserState> Process(std::string_view sv, size_t& i, ParseDest dest, Language ln = Language::NONE) override
+            virtual void Process(LtfFile& ltf, LtfEntryBuilder& bld, std::string_view sv, size_t& i, ParseDest dest, Language ln = Language::NONE) override
             {
-                switch (sv[i])
+                if (!bld.id.empty())
                 {
-
-
-                default:
-                    break;
+                    // if there's id and text or indices, then we're ready to register
+                    if (!bld.text.str().empty() || !(bld.begin == 0 && bld.end == 0))
+                    {
+                        bld.RegisterValue(ltf, dest);
+                        ltf.m_curState = ltfGlobalState;
+                    }
+                    // if there's id but nothing else, then the entry is incorrect
+                    else throw exc::CoreException(std::format("LTF parsing error: expected language code after identifier {}", bld.id));
+                    
+                    return;
                 }
-                return ltfGlobalState;
+                    
+                std::string id(sv.substr(i, sv.find_first_of(']')));
+                if(!CorrectLtfId(id)) throw exc::CoreException(std::format("LTF parsing error: invalid id: {}", id));
+                else
+                {
+                    bld.id = id;
+                    ++i;
+                    ltf.m_curState = ltfGlobalState;
+                }
             }
         };
         auto ltfIdState = std::make_shared<LtfIdState>();
 
         struct LtfLangState : public LtfParserState
         {
-            virtual std::shared_ptr<LtfParserState> Process(std::string_view sv, size_t& i, ParseDest dest, Language ln = Language::NONE) override
+            virtual void Process(LtfFile& ltf, LtfEntryBuilder& bld, std::string_view sv, size_t& i, ParseDest dest, Language ln = Language::NONE) override
             {
-                return ltfGlobalState;
+                std::string lan(sv.substr(i, sv.find_first_of(']')));
+                if (lan.empty() || !lang::langCodesSL.contains(lan))
+                    throw exc::CoreException(std::format("LTF parsing error: invalid language code: {}", lan));
+
+                std::string code, var;
+                if (lan.find('.') != lan.npos)
+                {
+                    size_t dot = lan.find_first_of('.');
+                    code = lan.substr(0, dot);
+                    var = lan.substr(dot + 1);
+
+                    if (code.empty() || !lang::langCodesSL.contains(code))
+                        throw exc::CoreException(std::format("LTF parsing error: invalid language code: {}", lan));
+                    if (var.empty()) throw exc::CoreException(std::format("LTF parsing error: invalid language code: {}", lan));
+
+                    bld.lan = lang::GetLanguageCodeEnum(code);
+                    bld.var = var;
+                }
+                
+                bld.lan = lang::GetLanguageCodeEnum(lan);
+
+                ltf.m_curState = ltfTextState;
             }
         };
         auto ltfLangState = std::make_shared<LtfLangState>();
 
         struct LtfTextState : public LtfParserState
         {
-            virtual std::shared_ptr<LtfParserState> Process(std::string_view sv, size_t& i, ParseDest dest, Language ln = Language::NONE) override
+            virtual void Process(LtfFile& ltf, LtfEntryBuilder& bld, std::string_view sv, size_t& i, ParseDest dest, Language ln = Language::NONE) override
             {
-                return ltfGlobalState;
+                if (sv[i] == '\n' && sv[i-1] != '\\')
+                {
+                    ltf.m_curState = ltfGlobalState;
+                    return;
+                }
+                
+                bld.text << sv[i];
+                ltf.m_curState = ltfTextState;
             }
         };
         auto ltfTextState = std::make_shared<LtfTextState>();
 
         struct LtfCommentState : public LtfParserState
         {
-            virtual std::shared_ptr<LtfParserState> Process(std::string_view sv, size_t& i, ParseDest dest, Language ln = Language::NONE) override
+            virtual void Process(LtfFile& ltf, LtfEntryBuilder& bld, std::string_view sv, size_t& i, ParseDest dest, Language ln = Language::NONE) override
             {
-                return ltfGlobalState;
+                for (size_t j = i; j < (sv.size() - i); ++j)
+                {
+                    if (sv[j] == '/' && sv[j - 1] == '*')
+                    {
+                        i = j;
+                        break;
+                    }
+                }
+
+                ltf.m_curState = ltfGlobalState;
             }
         };
         auto ltfCommentState = std::make_shared<LtfCommentState>();
+
+        struct LtfEntryBuilder
+        {
+            void Clear()
+            {
+                begin = end = 0;
+                lan = Language::NONE;
+                id.clear();
+                var.clear();
+                text.clear();
+            }
+
+            void RegisterValue(LtfFile& f, ParseDest dest)
+            {
+                try
+                {
+
+                    if (dest == ParseDest::MAP)
+                    {
+                        if (var.empty()) f.m_locMap.value()[id] = MultiStr{ lan, text.str() };
+                        else f.m_locMap.value()[id] = MultiStr{ lan, var, text.str() };
+                    }
+                    else
+                    {
+                        if (var.empty()) f.m_locIndex.value()[id] = MultiLocIndex{ lan, begin, end };
+                        else f.m_locIndex.value()[id] = MultiLocIndex{ lan, var, begin, end };
+                    }
+
+                    Clear();
+                }
+                catch (...)
+                {
+                    lg::Error("Failed to register value from LTF Entry Builder");
+                }
+            }
+
+            uint32_t            begin,
+                                end;
+            Language            lan;
+            std::string         id,
+                                var;
+            std::stringstream   text;
+        };
 
     }
 
@@ -263,71 +358,41 @@ namespace file
         }
 
     private:
-        enum class ParseTo : uint8_t { INDEX, MAP };
-        enum class ParserState : uint8_t { GLOBAL, ID, LANG, TEXT, COMMENT };
+        friend class itrn::LtfEntryBuilder;
+        friend class itrn::LtfGlobalState;
+        friend class itrn::LtfIdState;
+        friend class itrn::LtfLangState;
+        friend class itrn::LtfTextState;
+        friend class itrn::LtfCommentState;
 
-        
-
-        void m_Parse(ParseTo dest, Language ln = Language::NONE)
+        bool m_Parse(itrn::ParseDest dest, Language ln = Language::NONE)
         {
             using namespace itrn;
+            m_entryBuilder.Clear();
+            m_curState = itrn::ltfGlobalState;
 
-            std::string id, var, text;
-            Language ln;
-
-            ParserState state = ParserState::GLOBAL;
-            std::string_view sv(GetContent());
-            for (size_t i = 0; i < sv.size(); ++i)
+            try
             {
-                switch (state)
+                std::string_view sv(GetContent());
+                for (size_t i = 0; i < sv.size(); i++)
                 {
-                case ParserState::GLOBAL:
-                {
-                    if (sv[i] == F_SLASH)   // if comment
-                    {
-                        
-                    }
-                    else if (sv[i] == O_BRACKET)
-                    {
-                        
-                    }
-                    else throw exc::CoreException(std::format("LTF parsing error: unexpected '{}' at position {}", sv[i], i));
-                    
-                    break;
-                }                    
-                case ParserState::ID:
-                {
-
-                    id = sv.substr(i, sv.find_first_of(C_BRACKET));
-                    if(!CorrectLtfId(id)) 
-                        throw exc::CoreException(std::format("LTF parsing error: invalid id: {}", id));
-                    else
-                    {
-                        
-                    }
-                    break;
-                }
-                case ParserState::LANG:
-                {
-                    break;
-                }
-                case ParserState::TEXT:
-                {
-                    break;
-                }
-                case ParserState::COMMENT:
-                {
-                    break;
-                }
-                default:
-                    break;
+                    m_curState->Process(*this, m_entryBuilder, sv, i, dest, ln);
                 }
             }
+            catch (const exc::IException& e)
+            {
+                lg::Error(e.What());
+                return false;
+            }
+            return true;
         }
 
     private:
         bool                    m_ready = false;
-        itrn::LtfParserState*   m_parseState = nullptr;
+
+        itrn::LtfEntryBuilder m_entryBuilder;
+        std::shared_ptr<itrn::LtfParserState>   m_curState;
+
         std::optional<std::unordered_map<std::string, itrn::MultiStr>>      m_locMap;
         std::optional<std::unordered_map<std::string, itrn::MultiLocIndex>> m_locIndex;
     };

@@ -7,25 +7,18 @@
 #include <format>
 #include "engine/Localization.h"
 #include "core/Fsm.h"
+#include "core/Ltf.h"
 
 using namespace file;
 using namespace eng::loc;
 int main(int argc, char** argv)
 {
     con::Init();
-    /*
-    Localization loc;
-    loc.LoadFiles({ "res/test.txtloc", "res/test2.txtloc" });
-    lg::Info(std::to_string(loc.GetLoadedFilesNum()));
-    lg::Output(loc.GetFileContents("test2.txtloc"));
-    */
-
-
-    /*
+    
     try
     {
-        File fl;
-        lg::Info(fl.Read("res/test.txtloc"));
+        LtfFile fl;
+        lg::Output(fl.Read("res/Sample.ltf"));
     }
     catch (const exc::IException& e)
     {
@@ -35,10 +28,7 @@ int main(int argc, char** argv)
     {
         lg::Error("something went wrong");
     }
-    */
-    //con::PrintN("юникод");
-    //std::string s = "т";
-    con::Print("тест");
+    
     //std::wstring str = con::Utf8ToUtf16(s);
     /*
     unsigned short* vtemp = (unsigned short*)str.c_str();

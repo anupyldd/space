@@ -2,6 +2,9 @@
 
 #include <unordered_map>
 #include <string>
+#include <optional>
+#include <cstdint>
+#include <utility>
 
 namespace lang
 {
@@ -19,6 +22,8 @@ namespace lang
         FRENCH,
         HINDI
     };
+
+    inline std::unordered_map<std::string, Language> langCodesSL;  // initialize on Localization init
 
     inline String GetLanguageCodeStr(Language lang) noexcept
     {

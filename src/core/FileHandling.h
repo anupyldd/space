@@ -25,7 +25,7 @@
 
 namespace file
 {
-    class File; // main class for handling files, mostly choose this over FileStruct
+    class File; // main class for handling files, prefer this over FileStruct
 
     struct FileStruct;    // common struct for both windows and posix files, use with Open, Map, Close, GetContent
     enum class FileMode { READ, WRITE, READ_WRITE };
@@ -271,7 +271,7 @@ namespace file
     #endif
     }
 
-    // main class for handling files, mostly choose this over FileStruct
+    // main class for handling files, prefer this over FileStruct
     class File
     {
     public:
@@ -458,7 +458,7 @@ namespace file
             return GetContent();
         }
 
-    private:
+    protected:
         bool                                        m_open = false;
         bool                                        m_mapped = false;
         FileMode                                    m_mode;

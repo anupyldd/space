@@ -17,10 +17,6 @@ namespace eng
     {
         using namespace lang;
 
-        class MultiStr; // can store multiple variations of a string for different languages
-
-        // -------------------------
-
         class Localization
         {
         public:
@@ -54,23 +50,6 @@ namespace eng
         private:
             static Language                     m_gameLang;
             std::unordered_map<String, LocFile> m_loadedLocFiles;
-        };
-
-        // -------------------------
-
-        class MultiStr
-        {
-        public:
-            MultiStr() = default;
-            MultiStr(Language lang, const String& str) { m_locMap[lang] = str; }
-
-            void Set(Language lang, const String& str) { m_locMap[lang] = str; }
-
-            String operator()() { return m_locMap.at(Localization::GetLanguage()); }
-            String operator()(Language lang) { return m_locMap.at(lang); }
-
-        private:
-            std::unordered_map<Language, String> m_locMap;
         };
     }
 }

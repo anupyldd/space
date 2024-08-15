@@ -25,7 +25,8 @@
 // you can create variations for languages to handle grammar changes
 // names of variations are arbitrary
 // before creating variations, you'll need to have a default variant
-// here [en] defines a default, and [en.mult] is a variation
+// for a default, don't define any variation
+// here [en] defines a default, and [en.mult] is a variation with name "mult"
 [items]
 [en] book
 [en.mult] books

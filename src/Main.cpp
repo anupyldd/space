@@ -8,25 +8,26 @@
 #include "engine/Localization.h"
 #include "core/Fsm.h"
 #include "core/Ltf.h"
+#include "core/Config.h"
+#include "core/Math.h"
 
 using namespace file;
 using namespace eng::loc;
 int main(int argc, char** argv)
 {
-    con::Init();
+    conf::Init();
     
     try
     {
-        LtfFile fl;
-        lg::Output(fl.Read("res/Sample.ltf"));
+        
     }
     catch (const exc::IException& e)
     {
         lg::Error(e.What());
     }
-    catch (...)
+    catch (const std::exception& e2)
     {
-        lg::Error("something went wrong");
+        lg::Error(e2.what());
     }
     
     //std::wstring str = con::Utf8ToUtf16(s);

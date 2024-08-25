@@ -13,9 +13,12 @@ namespace math
     template<class T> struct Vector3;
     template<class T> struct Vector4;
 
-    template<class T, size_t S> struct Matrix;
-    template<class T> using Matrix2 = Matrix<T, 2>;
-    template<class T> using Matrix3 = Matrix<T, 3>;
+    template<class T, size_t S> struct MatrixSq;
+    template<class T> using MatrixSq2 = MatrixSq<T, 2>;
+    template<class T> using MatrixSq3 = MatrixSq<T, 3>;
+
+    template<class T, size_t row, size_t col>
+    using Array2 = std::array<std::array<T, col>, row>;	// helper for creating 2d arrays
 
     template<class T> struct Triangle;
     template<class T> struct Rectangle;
@@ -219,6 +222,372 @@ namespace math
 
         bool operator == (const Vector4& rhs) { return this->x == rhs.x && this->y == rhs.y && z == rhs.z && w == rhs.w; }
         bool operator != (const Vector4& rhs) { return !(*this == rhs); }
+    };
+
+    // ---------------------
+   
+    template<class T, size_t S> 
+    struct MatrixSq
+    {
+        Array2<T, S, S> elements;
+
+    public:
+        MatrixSq() = default;
+        MatrixSq(const std::initializer_list<std::initializer_list<T>>& ls)
+        {
+            for (size_t i = 0; i < ls.size(); ++i)
+            {
+                auto r = *(ls.begin() + i);
+                for (size_t j = 0; j < r.size(); j++)
+                {
+                    elements[i][j] = *(r.begin() + j);
+                }
+            }
+        }
+        MatrixSq(T val) { for (auto& r : elements) r.fill(val); }
+
+    public:
+        MatrixSq& operator = (const MatrixSq& rhs)
+        {
+            std::copy(rhs.elements.begin(), rhs.elements.end(), elements.begin());
+            return *this;
+        }
+
+        MatrixSq& operator *= (T rhs)
+        {
+            for (auto& r : elements)
+            {
+                for (auto& e : r) e *= rhs;
+            }
+            return *this;
+        }
+
+        MatrixSq& operator * (T rhs)
+        {
+            MatrixSq res = *this;
+            return res *= rhs;
+        }
+
+        MatrixSq& operator*=(const MatrixSq& rhs)
+        {
+            return *this = *this * rhs;
+        }
+
+        MatrixSq operator*(const MatrixSq& rhs) const
+        {
+            MatrixSq res;
+            for (size_t j = 0; j < S; j++)
+            {
+                for (size_t k = 0; k < S; k++)
+                {
+                    T sum = (T)0.0;
+                    for (size_t i = 0; i < S; i++)
+                    {
+                        sum += elements[j][i] * rhs.elements[i][k];
+                    }
+                    res.elements[j][k] = sum;
+                }
+            }
+            return res;
+        }
+
+        MatrixSq operator!() const
+        {
+            MatrixSq xp;
+            for (size_t j = 0; j < S; j++)
+            {
+                for (size_t k = 0; k < S; k++)
+                {
+                    xp.elements[j][k] = elements[k][j];
+                }
+            }
+            return xp;
+        }
+
+        constexpr static MatrixSq Identity()
+        {
+            if constexpr (S == 3)
+            {
+                return {
+                    (T)1.0,(T)0.0,(T)0.0,
+                    (T)0.0,(T)1.0,(T)0.0,
+                    (T)0.0,(T)0.0,(T)1.0,
+                };
+            }
+            else if constexpr (S == 4)
+            {
+                return {
+                    (T)1.0,(T)0.0,(T)0.0,(T)0.0,
+                    (T)0.0,(T)1.0,(T)0.0,(T)0.0,
+                    (T)0.0,(T)0.0,(T)1.0,(T)0.0,
+                    (T)0.0,(T)0.0,(T)0.0,(T)1.0,
+                };
+            }
+            else
+            {
+                static_assert(S == 3 || S == 4, "Bad dimensionality");
+            }
+        }
+        constexpr static MatrixSq Scaling(T factor)
+        {
+            if constexpr (S == 3)
+            {
+                return{
+                    factor,(T)0.0,(T)0.0,
+                    (T)0.0,factor,(T)0.0,
+                    (T)0.0,(T)0.0,factor,
+                };
+            }
+            else if constexpr (S == 4)
+            {
+                return {
+                    factor,(T)0.0,(T)0.0,(T)0.0,
+                    (T)0.0,factor,(T)0.0,(T)0.0,
+                    (T)0.0,(T)0.0,factor,(T)0.0,
+                    (T)0.0,(T)0.0,(T)0.0,(T)1.0,
+                };
+            }
+            else
+            {
+                static_assert(S == 3 || S == 4, "Bad dimensionality");
+            }
+        }
+        static MatrixSq RotationZ(T theta)
+        {
+            const T sinTheta = sin(theta);
+            const T cosTheta = cos(theta);
+            if constexpr (S == 3)
+            {
+                return{
+                        cosTheta, sinTheta, (T)0.0,
+                    -sinTheta, cosTheta, (T)0.0,
+                    (T)0.0,    (T)0.0,   (T)1.0,
+                };
+            }
+            else if constexpr (S == 4)
+            {
+                return {
+                        cosTheta, sinTheta, (T)0.0,(T)0.0,
+                    -sinTheta, cosTheta, (T)0.0,(T)0.0,
+                    (T)0.0,    (T)0.0,   (T)1.0,(T)0.0,
+                    (T)0.0,	   (T)0.0,   (T)0.0,(T)1.0,
+                };
+            }
+            else
+            {
+                static_assert(S == 3 || S == 4, "Bad dimensionality");
+            }
+        }
+        static MatrixSq RotationY(T theta)
+        {
+            const T sinTheta = sin(theta);
+            const T cosTheta = cos(theta);
+            if constexpr (S == 3)
+            {
+                return{
+                        cosTheta, (T)0.0,-sinTheta,
+                        (T)0.0,   (T)1.0, (T)0.0,
+                        sinTheta, (T)0.0, cosTheta
+                };
+            }
+            else if constexpr (S == 4)
+            {
+                return {
+                    cosTheta, (T)0.0, -sinTheta,(T)0.0,
+                    (T)0.0,   (T)1.0, (T)0.0,   (T)0.0,
+                    sinTheta, (T)0.0, cosTheta, (T)0.0,
+                    (T)0.0,   (T)0.0, (T)0.0,   (T)1.0,
+                };
+            }
+            else
+            {
+                static_assert(S == 3 || S == 4, "Bad dimensionality");
+            }
+        }
+        static MatrixSq RotationX(T theta)
+        {
+            const T sinTheta = sin(theta);
+            const T cosTheta = cos(theta);
+            if constexpr (S == 3)
+            {
+                return{
+                    (T)1.0, (T)0.0,   (T)0.0,
+                    (T)0.0, cosTheta, sinTheta,
+                    (T)0.0,-sinTheta, cosTheta,
+                };
+            }
+            else if constexpr (S == 4)
+            {
+                return {
+                    (T)1.0, (T)0.0,   (T)0.0,  (T)0.0,
+                    (T)0.0, cosTheta, sinTheta,(T)0.0,
+                    (T)0.0,-sinTheta, cosTheta,(T)0.0,
+                    (T)0.0, (T)0.0,   (T)0.0,  (T)1.0,
+                };
+            }
+            else
+            {
+                static_assert(S == 3 || S == 4, "Bad dimensionality");
+            }
+        }
+
+        template<class V>
+        constexpr static MatrixSq Translation(const V& tl)
+        {
+            return Translation(tl.x, tl.y, tl.z);
+        }
+        constexpr static MatrixSq Translation(T x, T y, T z)
+        {
+            if constexpr (S == 4)
+            {
+                return {
+                    (T)1.0,(T)0.0,(T)0.0,(T)0.0,
+                    (T)0.0,(T)1.0,(T)0.0,(T)0.0,
+                    (T)0.0,(T)0.0,(T)1.0,(T)0.0,
+                    x,     y,      z,    (T)1.0,
+                };
+            }
+            else
+            {
+                static_assert(S == 3 || S == 4, "Bad dimensionality");
+            }
+        }
+        constexpr static MatrixSq Projection(T w, T h, T n, T f)
+        {
+            if constexpr (S == 4)
+            {
+                return {
+                    (T)2.0 * n / w,	(T)0.0,			(T)0.0,				(T)0.0,
+                    (T)0.0,			(T)2.0 * n / h,	(T)0.0,				(T)0.0,
+                    (T)0.0,			(T)0.0,			f / (f - n),		(T)1.0,
+                    (T)0.0,			(T)0.0,			-n * f / (f - n),	(T)0.0,
+                };
+            }
+            else
+            {
+                static_assert(S == 3 || S == 4, "Bad dimensionality");
+            }
+        }
+        
+    };
+
+    template<typename T>
+    Vector3<T>& operator*=(Vector3<T>& lhs, const MatrixSq<T, 3>& rhs)
+    {
+        return lhs = lhs * rhs;
+    }
+
+    template<typename T>
+    Vector3<T> operator*(const Vector3<T>& lhs, const MatrixSq<T, 3>& rhs)
+    {
+        return{
+            lhs.x * rhs.elements[0][0] + lhs.y * rhs.elements[1][0] + lhs.z * rhs.elements[2][0],
+            lhs.x * rhs.elements[0][1] + lhs.y * rhs.elements[1][1] + lhs.z * rhs.elements[2][1],
+            lhs.x * rhs.elements[0][2] + lhs.y * rhs.elements[1][2] + lhs.z * rhs.elements[2][2]
+        };
+    }
+
+    template<typename T>
+    Vector4<T>& operator*=(Vector4<T>& lhs, const MatrixSq<T, 4>& rhs)
+    {
+        return lhs = lhs * rhs;
+    }
+
+    template<typename T>
+    Vector4<T> operator*(const Vector4<T>& lhs, const MatrixSq<T, 4>& rhs)
+    {
+        return{
+            lhs.x * rhs.elements[0][0] + lhs.y * rhs.elements[1][0] + lhs.z * rhs.elements[2][0] + lhs.w * rhs.elements[3][0],
+            lhs.x * rhs.elements[0][1] + lhs.y * rhs.elements[1][1] + lhs.z * rhs.elements[2][1] + lhs.w * rhs.elements[3][1],
+            lhs.x * rhs.elements[0][2] + lhs.y * rhs.elements[1][2] + lhs.z * rhs.elements[2][2] + lhs.w * rhs.elements[3][2],
+            lhs.x * rhs.elements[0][3] + lhs.y * rhs.elements[1][3] + lhs.z * rhs.elements[2][3] + lhs.w * rhs.elements[3][3]
+        };
+    }
+    
+    // ---------------------
+
+    template<class T>
+    struct Rectangle
+    {
+        T top, bottom, left, right;
+
+    public:
+        Rectangle() {}
+        Rectangle(T top, T bottom, T left, T right)
+            :
+            top(top),
+            bottom(bottom),
+            left(left),
+            right(right)
+        {}
+        Rectangle(const Rectangle& rect)
+            :
+            top(rect.top),
+            bottom(rect.bottom),
+            left(rect.left),
+            right(rect.right)
+        {}
+        Rectangle(Vector2<T> p0, Vector2<T> p1)
+            :
+            Rectangle(min(p0.y, p1.y),
+                max(p0.y, p1.y),
+                min(p0.x, p1.x),
+                max(p0.x, p1.x))
+        {}
+        void Translate(Vector2<T> d)
+        {
+            Translate(d.x, d.y);
+        }
+        void Translate(T dx, T dy)
+        {
+            top += dy;
+            bottom += dy;
+            left += dx;
+            right += dx;
+        }
+        template <typename T2>
+        operator Rectangle<T2>() const
+        {
+            return { (T2)top,(T2)bottom,(T2)left,(T2)right };
+        }
+        void ClipTo(const Rectangle& rect)
+        {
+            top = std::max(top, rect.top);
+            bottom = std::min(bottom, rect.bottom);
+            left = std::max(left, rect.left);
+            right = std::min(right, rect.right);
+        }
+        T GetWidth() const
+        {
+            return right - left;
+        }
+        T GetHeight() const
+        {
+            return bottom - top;
+        }
+        bool Overlaps(const Rectangle& rect) const
+        {
+            return top < rect.bottom && bottom > rect.top &&
+                left < rect.right && right > rect.left;
+        }
+        template <typename T2>
+        bool Contains(Vector2<T2> p) const
+        {
+            return p.y >= top && p.y <= bottom && p.x >= left && p.x <= right;
+        }
+        template <typename T2>
+        bool Contains(Rectangle<T2> p) const
+        {
+            return p.top >= top && p.bottom <= bottom && p.left >= left && p.right <= right;
+        }
+    };
+
+    // ---------------------
+
+    template<class T>
+    struct Triangle
+    {
+        T v0, v1, v2;
     };
 
     // ---------------------

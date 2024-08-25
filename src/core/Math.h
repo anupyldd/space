@@ -506,6 +506,85 @@ namespace math
     
     // ---------------------
 
+    template<class T>
+    struct Rectangle
+    {
+        T top, bottom, left, right;
+
+    public:
+        Rectangle() {}
+        Rectangle(T top, T bottom, T left, T right)
+            :
+            top(top),
+            bottom(bottom),
+            left(left),
+            right(right)
+        {}
+        Rectangle(const Rectangle& rect)
+            :
+            top(rect.top),
+            bottom(rect.bottom),
+            left(rect.left),
+            right(rect.right)
+        {}
+        Rectangle(Vector2<T> p0, Vector2<T> p1)
+            :
+            Rectangle(min(p0.y, p1.y),
+                max(p0.y, p1.y),
+                min(p0.x, p1.x),
+                max(p0.x, p1.x))
+        {}
+        void Translate(Vector2<T> d)
+        {
+            Translate(d.x, d.y);
+        }
+        void Translate(T dx, T dy)
+        {
+            top += dy;
+            bottom += dy;
+            left += dx;
+            right += dx;
+        }
+        template <typename T2>
+        operator Rectangle<T2>() const
+        {
+            return { (T2)top,(T2)bottom,(T2)left,(T2)right };
+        }
+        void ClipTo(const Rectangle& rect)
+        {
+            top = std::max(top, rect.top);
+            bottom = std::min(bottom, rect.bottom);
+            left = std::max(left, rect.left);
+            right = std::min(right, rect.right);
+        }
+        T GetWidth() const
+        {
+            return right - left;
+        }
+        T GetHeight() const
+        {
+            return bottom - top;
+        }
+        bool Overlaps(const Rectangle& rect) const
+        {
+            return top < rect.bottom && bottom > rect.top &&
+                left < rect.right && right > rect.left;
+        }
+        template <typename T2>
+        bool Contains(Vector2<T2> p) const
+        {
+            return p.y >= top && p.y <= bottom && p.x >= left && p.x <= right;
+        }
+        template <typename T2>
+        bool Contains(Rectangle<T2> p) const
+        {
+            return p.top >= top && p.bottom <= bottom && p.left >= left && p.right <= right;
+        }
+    };
+
+    // ---------------------
+
+
     template<class T> inline T Sqr(T a) { return a * a; }
 
 }

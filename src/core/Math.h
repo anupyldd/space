@@ -584,6 +584,13 @@ namespace math
 
     // ---------------------
 
+    template<class T>
+    struct Triangle
+    {
+        T v0, v1, v2;
+    };
+
+    // ---------------------
 
     template<class T> inline T Sqr(T a) { return a * a; }
 

@@ -9,6 +9,7 @@
 #include "core/Fsm.h"
 #include "core/Ltf.h"
 #include "core/Config.h"
+#include "core/Math.h"
 
 using namespace file;
 using namespace eng::loc;
@@ -18,15 +19,7 @@ int main(int argc, char** argv)
     
     try
     {
-        LtfFile fl;
-        fl.Prepare("res/Sample.ltf");
-        fl.CreateMap(Language::ENGLISH);
         
-        for (auto& e : fl.GetMap())
-        {
-            lg::Info(std::format("{} {}", e.first, e.second.Get(Language::ENGLISH)));
-        }
-        //lg::Output(fl.Read("res/Sample.ltf"));
     }
     catch (const exc::IException& e)
     {

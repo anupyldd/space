@@ -102,6 +102,8 @@ namespace file
             void Set(Language ln, const std::string& var, const String& str) { m_locMap[{ln, var}] = str; }
             std::string Get(Language ln, const std::string& var) { return m_locMap.at({ ln, var }); }
 
+            auto& GerStrMap() { return m_locMap; }
+
         private:
             std::unordered_map<LanguageVariation, String, LanVarHash> m_locMap;
         };
@@ -121,6 +123,8 @@ namespace file
             MultiLocIndex(Language ln, const std::string& var, uint32_t begin, uint32_t end) { m_indexMap[{ln, var}] = { begin,end }; }
             void Set(Language ln, const std::string& var, uint32_t begin, uint32_t end) { m_indexMap[{ln, var}] = { begin,end }; }
             IndexPair Get(Language ln, const std::string& var) { return m_indexMap.at({ ln, var }); }
+
+            auto& GerIndexMap() { return m_indexMap; }
 
         private:
             std::unordered_map<LanguageVariation, IndexPair, LanVarHash> m_indexMap;
@@ -209,6 +213,7 @@ namespace file
                 for (size_t i = 0; i < sv.size(); i++)
                 {
                     m_curState->Process(*this, m_entryBuilder, sv, i, dest, ln);
+                    m_entryBuilder.SetValue(dest);
                     
                     lg::Debug(std::format("LtfEntryBuilder state:\n- begin: {}\n- end: {}\n- lan: {}\n- id: {}\n- var: {}\n- text: {}",
                         (void*)m_entryBuilder.begin, (void*)m_entryBuilder.end, lang::GetLanguageCodeStr(m_entryBuilder.lan), m_entryBuilder.id, m_entryBuilder.var, m_entryBuilder.text.str()));
@@ -223,6 +228,7 @@ namespace file
         }
 
     private:
+
         struct LtfEntryBuilder
         {
             void Clear()
@@ -232,30 +238,53 @@ namespace file
                 id.clear();
                 var.clear();
                 text.clear();
+
+                mind.GerIndexMap().clear();
+                mstr.GerStrMap().clear();
+            }
+
+            void SetValue(ParseDest dest)
+            {
+                if (id.empty() || text.str().empty()) return;
+                if (dest == ParseDest::MAP)
+                {
+                    if (var.empty()) mstr.Set(lan, text.str());
+                    else mstr.Set(lan, var, text.str());
+                    
+                    text.clear();
+                }
+                else
+                {
+                    if (begin != 0 && end != 0)
+                    {
+                        if (var.empty()) mind.Set(lan, begin, end);
+                        else mind.Set(lan, var, begin, end);
+
+                        text.clear(); 
+                    }
+                }
             }
 
             void RegisterValue(LtfFile& f, ParseDest dest)
             {
                 using namespace itrn;
 
-                if (dest == ParseDest::MAP)
-                {
-                    if (var.empty()) f.m_locMap[id] = MultiStr{ lan, text.str() };
-                    else f.m_locMap[id] = MultiStr{ lan, var, text.str() };
-                }
-                else
-                {
-                    if (var.empty()) f.m_locIndex[id] = MultiLocIndex{ lan, begin, end };
-                    else f.m_locIndex[id] = MultiLocIndex{ lan, var, begin, end };
-                }
+                if (dest == ParseDest::MAP) f.m_locMap[id] = mstr;
+                else f.m_locIndex[id] = mind;
 
                 Clear();
             }
+
+            bool readyMind = false;
+            bool readyMstr = false;
 
             uint32_t begin, end;
             Language lan;
             std::string id, var;
             std::stringstream text;
+            
+            itrn::MultiLocIndex mind;
+            itrn::MultiStr mstr;
         };
 
         struct LtfParserState
